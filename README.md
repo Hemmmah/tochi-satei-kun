@@ -1,4 +1,4 @@
-# 土地価格査定クン (Tochi-Kasei-Kun) — White-Box Land Appraisal Skill for Claude Cowork
+# 土地価格査定クン (Tochi-Satei-Kun) — White-Box Land Appraisal Skill for Claude Cowork
 
 **土地価格査定クン** は、不動産仲介担当者・媒介査定担当者向けの **白箱AVM（Automated Valuation Model）** スキルです。MLIT（国土交通省）取引価格情報CSVと地価公示GeoJSONを入力に、**ヘドニック回帰係数を都度算定して個別格差補正を全開示** し、業者用シート（係数開示）と顧客用シート（流推方式準拠）の2シート構成xlsxを出力します。
 
