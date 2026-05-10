@@ -1,0 +1,42 @@
+{
+  "name": "tochi-satei-kun",
+  "owner": {
+    "name": "Signal Yield Advisory",
+    "email": "signalyield@gmail.com",
+    "url": "https://github.com/signal-yield"
+  },
+  "metadata": {
+    "description": "Statistical comparable-sales land appraisal skill (white-box AVM) by Signal Yield Advisory — Japanese licensed real estate appraiser's AI toolkit.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "tochi-satei-kun",
+      "source": {
+        "source": "github",
+        "repo": "signal-yield/tochi-satei-kun"
+      },
+      "description": "Statistical comparable-sales appraisal skill for Japanese land. Re-estimates hedonic regression coefficients on every run from MLIT transaction data, and generates a fully-disclosed broker-side worksheet plus a client-facing assessment report (xlsx).",
+      "version": "1.0.0",
+      "author": {
+        "name": "Koichi Matsuda (Licensed Real Estate Appraiser, Japan, 2002-)",
+        "email": "signalyield@gmail.com"
+      },
+      "keywords": [
+        "real-estate",
+        "japan",
+        "land-valuation",
+        "AVM",
+        "hedonic-regression",
+        "white-box",
+        "comparable-sales",
+        "appraisal",
+        "takkengyoho",
+        "MLIT"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/signal-yield/tochi-satei-kun",
+      "repository": "https://github.com/signal-yield/tochi-satei-kun"
+    }
+  ]
+}
