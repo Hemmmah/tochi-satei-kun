@@ -1,6 +1,6 @@
 {
   "name": "tochi-satei-kun",
-  "description": "Statistical comparable-sales appraisal skill for Japanese land. Re-estimates hedonic regression coefficients on every run from MLIT transaction data, and generates a fully-disclosed broker-side worksheet plus a client-facing assessment report (xlsx).",
+  "description": "Japan's first open-source AVM (Automated Valuation Model) for land appraisal — aiming to be 'the Linux of AVMs'. Re-estimates hedonic regression coefficients on every run from MLIT transaction data, fully discloses coefficients/p-values/standard errors, and generates broker-side worksheets plus client-facing assessment reports (xlsx).",
   "version": "1.0.0",
   "author": {
     "name": "Koichi Matsuda",

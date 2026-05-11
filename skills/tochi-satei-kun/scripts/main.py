@@ -13,11 +13,12 @@ from pathlib import Path
 import pandas as pd
 
 from load_mlit import load_mlit_csv, load_koji_auto, load_kijun_auto
-from scope import scope_dataframe
+from scope import scope_dataframe, filter_recent_for_comparison, DEFAULT_COMPARISON_MONTHS
 from similarity import compute_similarity, top_k
 from time_adjust import annual_rate_for_city, apply_time_adjustment
-from hedonic import fit_hedonic
-from correction import apply_correction, correction_breakdown, hijun_correction_for_case
+from hedonic import fit_hedonic, annotate_district_mean, annotate_station_mean
+from correction import (apply_correction, correction_breakdown, hijun_correction_for_case,
+                        compute_target_district_mean, compute_target_station_mean)
 from aggregation import assess
 from xlsx_writer import write_xlsx
 
@@ -37,6 +38,8 @@ def _hedonic_population_predict(hed: dict, target: dict) -> float:
             continue
         if name == "ln_area":
             x = math.log(target["面積(㎡)"])
+        elif name == "ln_area_sq":
+            x = math.log(target["面積(㎡)"]) ** 2
         elif name == "walk_min":
             x = float(target.get("最寄駅:距離(分)", 10))
         elif name == "ln_shape":
@@ -62,6 +65,12 @@ def _hedonic_population_predict(hed: dict, target: dict) -> float:
             x = 1.0 if target.get("土地の形状") == "袋地" else 0.0
         elif name == "D_fuseikei":
             x = 1.0 if target.get("土地の形状") == "不整形" else 0.0
+        elif name == "ln_district_mean":
+            v = target.get("_target_district_mean", 0.0)
+            x = math.log(v) if v and v > 0 else 0.0
+        elif name == "ln_station_mean":
+            v = target.get("_target_station_mean", 0.0)
+            x = math.log(v) if v and v > 0 else 0.0
         else:
             x = 0.0
         ln_pred += c["beta"] * x
@@ -199,11 +208,25 @@ def run_pipeline(property_path: str, mlit_path: str, koji_path: str, kijun_path:
     )
     adjusted = apply_time_adjustment(scoped, asof, rate_info["rate"])
 
-    # 4. ヘドニック回帰
+    # 3b. 地区／最寄駅 平均単価をターゲット符号化として df に annotate（事例側・target 側共通）
+    adjusted = annotate_district_mean(adjusted)
+    adjusted = annotate_station_mean(adjusted)
+    target["_target_district_mean"] = compute_target_district_mean(adjusted, target)
+    target["_target_station_mean"] = compute_target_station_mean(adjusted, target)
+
+    # 4. ヘドニック回帰（MLIT全期間で係数推定、n 最大化）
     hed = fit_hedonic(adjusted)
 
-    # 5. 類似度 → top 3（流推方式準拠：主比準1件＋検証用2件）
-    sim = compute_similarity(adjusted, target)
+    # 5. 類似度 → top 3（取引事例比準は直近1.5年に絞って最新市場感を反映）
+    recent = filter_recent_for_comparison(adjusted, asof, months=DEFAULT_COMPARISON_MONTHS)
+    if len(recent) < 3:
+        # 直近1.5年で3件未満なら全期間で代用（警告付き）
+        recent = adjusted
+        scope_log["warnings"].append(
+            f"直近{DEFAULT_COMPARISON_MONTHS}ヶ月の事例が3件未満のため、比準事例選定も全期間から実施"
+        )
+    scope_log["comparison_recent_count"] = len(recent)
+    sim = compute_similarity(recent, target)
     top_cases = top_k(sim, k=3)
 
     # 6. 個別格差補正

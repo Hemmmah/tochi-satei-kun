@@ -14,24 +14,60 @@ SOUTH_FACING = {"南", "南東", "南西"}
 
 # 補正対象の特徴量（hedonic.py の FEATURE_LABELS と整合）
 CORRECTION_FEATURES = [
-    "ln_area", "walk_min",
-    "ln_shape", "ln_road_w", "D_south",
-    "D_shidou", "D_fukuro", "D_fuseikei",
+    "ln_area", "ln_area_sq", "walk_min",
+    "ln_shape", "ln_road_w",
+    "D_south", "D_shidou", "D_fukuro", "D_fuseikei",
+    "ln_district_mean", "ln_station_mean",
 ]
 
 # 比準表での補正種別の分類（鑑定書様式に準拠）
 # 標準化補正 = 画地・形状系（事例の個別性を標準画地に揃える）
 # 地域格差 = 地域・街路・交通系（事例の地域性を査定地域に揃える）
 HIJUN_GROUP = {
-    "ln_shape":   "標準化補正",
-    "D_fukuro":   "標準化補正",
-    "D_fuseikei": "標準化補正",
-    "ln_area":    "地域格差",
-    "walk_min":   "地域格差",
-    "ln_road_w":  "地域格差",
-    "D_south":    "地域格差",
-    "D_shidou":   "地域格差",
+    "ln_shape":    "標準化補正",
+    "D_fukuro":    "標準化補正",
+    "D_fuseikei":  "標準化補正",
+    "ln_area":     "地域格差",
+    "ln_area_sq":  "地域格差",
+    "walk_min":    "地域格差",
+    "ln_road_w":   "地域格差",
+    "D_south":     "地域格差",
+    "D_shidou":    "地域格差",
+    "ln_district_mean": "地域格差",
+    "ln_station_mean":  "地域格差",
 }
+
+
+def compute_target_district_mean(scoped_df, target: dict) -> float:
+    """target の地区における平均単価（円/㎡）を scoped_df から計算。
+    地区内 n >= 3 なら同地区の平均、それ未満は scoped 全体の平均にフォールバック。
+    """
+    if scoped_df is None or len(scoped_df) == 0 or "unit_price" not in scoped_df.columns:
+        return 0.0
+    overall = float(scoped_df["unit_price"].mean())
+    d = target.get("地区名", "")
+    if not d or "district" not in scoped_df.columns:
+        return overall
+    matched = scoped_df[scoped_df["district"] == d]
+    if len(matched) >= 3:
+        return float(matched["unit_price"].mean())
+    return overall
+
+
+def compute_target_station_mean(scoped_df, target: dict) -> float:
+    """target の最寄駅における平均単価（円/㎡）を scoped_df から計算。
+    駅内 n >= 3 なら同駅の平均、それ未満は scoped 全体の平均にフォールバック。
+    """
+    if scoped_df is None or len(scoped_df) == 0 or "unit_price" not in scoped_df.columns:
+        return 0.0
+    overall = float(scoped_df["unit_price"].mean())
+    s = target.get("最寄駅:名称", "")
+    if not s or "station" not in scoped_df.columns:
+        return overall
+    matched = scoped_df[scoped_df["station"] == s]
+    if len(matched) >= 3:
+        return float(matched["unit_price"].mean())
+    return overall
 
 
 def _shape_index(area: float, kanguchi: float) -> float:
@@ -46,6 +82,8 @@ def _shape_index(area: float, kanguchi: float) -> float:
 def _target_feature_value(target: dict, feature: str) -> float:
     if feature == "ln_area":
         return math.log(target["面積(㎡)"])
+    if feature == "ln_area_sq":
+        return math.log(target["面積(㎡)"]) ** 2
     if feature == "walk_min":
         return float(target.get("最寄駅:距離(分)", 10))
     if feature == "ln_shape":
@@ -70,12 +108,29 @@ def _target_feature_value(target: dict, feature: str) -> float:
         return 1.0 if target.get("土地の形状") == "袋地" else 0.0
     if feature == "D_fuseikei":
         return 1.0 if target.get("土地の形状") == "不整形" else 0.0
+    if feature == "ln_district_mean":
+        # target の地区平均単価（main.py で事前計算した private フィールド）
+        v = target.get("_target_district_mean", 0.0)
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            v = 0.0
+        return math.log(v) if v > 0 else 0.0
+    if feature == "ln_station_mean":
+        v = target.get("_target_station_mean", 0.0)
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            v = 0.0
+        return math.log(v) if v > 0 else 0.0
     return 0.0
 
 
 def _case_feature_value(row: pd.Series, feature: str) -> float:
     if feature == "ln_area":
         return math.log(row["area"])
+    if feature == "ln_area_sq":
+        return math.log(row["area"]) ** 2
     if feature == "walk_min":
         v = row.get("walk_min")
         return float(v) if pd.notna(v) else 10.0
@@ -103,6 +158,22 @@ def _case_feature_value(row: pd.Series, feature: str) -> float:
         return 1.0 if row.get("shape") == "袋地" else 0.0
     if feature == "D_fuseikei":
         return 1.0 if row.get("shape") == "不整形" else 0.0
+    if feature == "ln_district_mean":
+        v = row.get("ln_district_mean", None)
+        if v is not None and not pd.isna(v):
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                pass
+        return 0.0
+    if feature == "ln_station_mean":
+        v = row.get("ln_station_mean", None)
+        if v is not None and not pd.isna(v):
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                pass
+        return 0.0
     return 0.0
 
 

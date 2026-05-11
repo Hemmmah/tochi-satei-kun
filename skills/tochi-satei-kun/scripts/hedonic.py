@@ -17,6 +17,7 @@ SOUTH_FACING = {"南", "南東", "南西"}
 # 特徴量 → SKILL.md/業者用シートで使う日本語名のマッピング
 FEATURE_LABELS = {
     "ln_area": "面積（対数）",
+    "ln_area_sq": "面積²（対数の二乗、規模逓減項）",
     "walk_min": "駅徒歩分",
     "ln_shape": "形状指数 ln(間口²/面積)",
     "ln_road_w": "道路幅員（対数）",
@@ -24,8 +25,14 @@ FEATURE_LABELS = {
     "D_shidou": "私道ダミー",
     "D_fukuro": "袋地ダミー",
     "D_fuseikei": "不整形ダミー",
+    "ln_district_mean": "地区平均単価（対数・ターゲット符号化）",
+    "ln_station_mean": "最寄駅平均単価（対数・ターゲット符号化）",
     "const": "定数項",
 }
+
+# 地区／駅平均単価特徴量を有効にする最低サンプル数（地区／駅内）
+DISTRICT_MEAN_MIN_SAMPLES = 3
+STATION_MEAN_MIN_SAMPLES = 3
 
 
 def _build_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -37,6 +44,8 @@ def _build_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     X = pd.DataFrame(index=df.index)
     X["ln_area"] = df["area"].apply(math.log)
+    # 面積²（規模逓減項）：大規模化で単価が下がる傾向を捕捉
+    X["ln_area_sq"] = X["ln_area"] ** 2
     X["walk_min"] = df["walk_min"].fillna(
         df["walk_min"].median() if "walk_min" in df else 10
     )
@@ -64,7 +73,47 @@ def _build_features(df: pd.DataFrame) -> pd.DataFrame:
     X["D_shidou"] = (df.get("road_type", "") == "私道").astype(int)
     X["D_fukuro"] = (df.get("shape", "") == "袋地").astype(int)
     X["D_fuseikei"] = (df.get("shape", "") == "不整形").astype(int)
+    # 地区／駅平均単価（ターゲット符号化）：annotate_*_mean で事前に df に
+    # ln_district_mean / ln_station_mean 列を付与しておく前提
+    if "ln_district_mean" in df.columns:
+        X["ln_district_mean"] = df["ln_district_mean"]
+    if "ln_station_mean" in df.columns:
+        X["ln_station_mean"] = df["ln_station_mean"]
     return X
+
+
+def annotate_district_mean(df: pd.DataFrame) -> pd.DataFrame:
+    """df に ln_district_mean 列を追加。
+
+    地区別の単価平均を ln 取って格納。地区内 n >= DISTRICT_MEAN_MIN_SAMPLES なら
+    同地区平均、それ未満は市区町村全体平均で代用。
+    """
+    out = df.copy()
+    if "district" not in out.columns or "unit_price" not in out.columns or len(out) == 0:
+        return out
+    overall_mean = out["unit_price"].mean()
+    counts = out.groupby("district")["unit_price"].transform("count")
+    means = out.groupby("district")["unit_price"].transform("mean")
+    district_price = means.where(counts >= DISTRICT_MEAN_MIN_SAMPLES, overall_mean)
+    out["ln_district_mean"] = district_price.clip(lower=1.0).apply(math.log)
+    return out
+
+
+def annotate_station_mean(df: pd.DataFrame) -> pd.DataFrame:
+    """df に ln_station_mean 列を追加。
+
+    最寄駅別の単価平均を ln 取って格納。駅内 n >= STATION_MEAN_MIN_SAMPLES なら
+    同駅平均、それ未満は市区町村全体平均で代用。
+    """
+    out = df.copy()
+    if "station" not in out.columns or "unit_price" not in out.columns or len(out) == 0:
+        return out
+    overall_mean = out["unit_price"].mean()
+    counts = out.groupby("station")["unit_price"].transform("count")
+    means = out.groupby("station")["unit_price"].transform("mean")
+    station_price = means.where(counts >= STATION_MEAN_MIN_SAMPLES, overall_mean)
+    out["ln_station_mean"] = station_price.clip(lower=1.0).apply(math.log)
+    return out
 
 
 def fit_hedonic(df: pd.DataFrame) -> dict:
