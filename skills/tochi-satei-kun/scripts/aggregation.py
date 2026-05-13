@@ -69,17 +69,44 @@ def price_range(corrected_prices, area: float, central_unit: float = None) -> di
 
 
 def assess(corrected_df: pd.DataFrame, area: float) -> dict:
-    """補正後事例DataFrameから査定結果を組み立てる（複数件集約版）。"""
-    prices = corrected_df["corrected_unit_price"].tolist()
-    agg = aggregate_unit_price(prices)
-    rng = price_range(prices, area, central_unit=agg["central"])
+    """補正後事例DataFrameから査定結果を組み立てる。
+    価格レンジは **top3 事例の試算値の min / median / max** を直接採用（比準表と整合）。
+    """
+    arr = [float(v) for v in corrected_df["corrected_unit_price"].tolist()
+           if v is not None and not pd.isna(v)]
+    n = len(arr)
+    if n == 0:
+        return {
+            "central_unit_price": None, "central_total_price": None,
+            "method": "事例なし", "warning": "集約対象が0件", "n_cases": 0,
+            "range": {"low_unit": None, "central_unit": None, "high_unit": None,
+                      "low_total": None, "central_total": None, "high_total": None},
+        }
+    arr_sorted = sorted(arr)
+    high_unit = arr_sorted[-1]
+    low_unit = arr_sorted[0]
+    # 中央：奇数なら中央値、偶数なら中央2値の平均
+    if n % 2 == 1:
+        central_unit = arr_sorted[n // 2]
+    else:
+        central_unit = (arr_sorted[n // 2 - 1] + arr_sorted[n // 2]) / 2
+    warning = None
+    if n < 3:
+        warning = f"事例件数 {n}件：価格レンジは参考程度"
     return {
-        "central_unit_price": agg["central"],
-        "central_total_price": agg["central"] * area if agg["central"] else None,
-        "method": agg["method"],
-        "warning": agg["warning"],
-        "n_cases": agg["n"],
-        "range": rng,
+        "central_unit_price": central_unit,
+        "central_total_price": central_unit * area,
+        "method": f"top{n}事例の中央値（比準表試算値と整合）",
+        "warning": warning,
+        "n_cases": n,
+        "range": {
+            "low_unit": low_unit,
+            "central_unit": central_unit,
+            "high_unit": high_unit,
+            "low_total": low_unit * area,
+            "central_total": central_unit * area,
+            "high_total": high_unit * area,
+        },
     }
 
 

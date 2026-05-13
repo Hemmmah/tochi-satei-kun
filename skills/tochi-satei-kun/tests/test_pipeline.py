@@ -53,7 +53,7 @@ def test_hedonic_sign():
         "walk_min": "negative",    # 駅遠い→単価減
         # ln_shape は形状指数：0付近で正方形、極端で帯/旗竿。符号は地域依存（テスト対象外）
         "ln_road_w": "positive",   # 道路幅員広い→単価増
-        "D_south": "positive",     # 南向き→単価増
+        "dir_score": "positive",   # 方位スコア大（南寄り）→単価増
         "D_shidou": "negative",    # 私道→減価
         "D_fukuro": "negative",    # 袋地→減価
         "D_fuseikei": "negative",  # 不整形→減価

@@ -11,22 +11,33 @@ import statsmodels.api as sm
 
 MIN_SAMPLES_FOR_REGRESSION = 15
 
-# 南向き判定：南、南東、南西を「南向き道路」とみなす（業界慣行）
+# 方位スコア：北を 0、南を 4 とする ordinal scale（鑑定実務に親和的）
+# 標準化補正で「北 → 南」の差分が綺麗に積算できる
+DIR_SCORE = {
+    "北": 0,
+    "北東": 1, "北西": 1,
+    "東": 2, "西": 2,
+    "南東": 3, "南西": 3,
+    "南": 4,
+}
+
+# 後方互換のため南向きセットも保持
 SOUTH_FACING = {"南", "南東", "南西"}
 
 # 特徴量 → SKILL.md/業者用シートで使う日本語名のマッピング
 FEATURE_LABELS = {
-    "ln_area": "面積（対数）",
-    "ln_area_sq": "面積²（対数の二乗、規模逓減項）",
+    "ln_area": "面積",
+    "ln_area_sq": "面積²",
     "walk_min": "駅徒歩分",
-    "ln_shape": "形状指数 ln(間口²/面積)",
-    "ln_road_w": "道路幅員（対数）",
-    "D_south": "南向き道路ダミー",
-    "D_shidou": "私道ダミー",
-    "D_fukuro": "袋地ダミー",
-    "D_fuseikei": "不整形ダミー",
-    "ln_district_mean": "地区平均単価（対数・ターゲット符号化）",
-    "ln_station_mean": "最寄駅平均単価（対数・ターゲット符号化）",
+    "ln_shape": "形状指数",
+    "ln_road_w": "道路幅員",
+    "ln_far": "容積率",
+    "dir_score": "方位",
+    "D_shidou": "私道",
+    "D_fukuro": "袋地",
+    "D_fuseikei": "不整形",
+    "ln_district_mean": "地区平均単価",
+    "ln_station_mean": "駅勢圏平均単価",
     "const": "定数項",
 }
 
@@ -65,10 +76,18 @@ def _build_features(df: pd.DataFrame) -> pd.DataFrame:
         X["ln_road_w"] = rw.apply(math.log)
     else:
         X["ln_road_w"] = math.log(5.0)
-    # 南向きダミー（南・南東・南西）
-    X["D_south"] = df.get("road_dir", pd.Series([""] * len(df))).apply(
-        lambda v: 1 if str(v) in SOUTH_FACING else 0
-    ).astype(int)
+    # 方位スコア（北=0、南=4 の ordinal）
+    X["dir_score"] = df.get("road_dir", pd.Series([""] * len(df))).apply(
+        lambda v: DIR_SCORE.get(str(v).strip(), 0)
+    ).astype(float)
+    # 容積率（対数）：行政条件として地価に直接影響（密度・収益上限）
+    if "floor_area_ratio" in df.columns:
+        far = pd.to_numeric(df["floor_area_ratio"], errors="coerce")
+        far_med = far.median() if far.notna().any() else 200.0
+        far = far.fillna(far_med).clip(lower=1.0)
+        X["ln_far"] = far.apply(math.log)
+    else:
+        X["ln_far"] = math.log(200.0)
     # 既存ダミー
     X["D_shidou"] = (df.get("road_type", "") == "私道").astype(int)
     X["D_fukuro"] = (df.get("shape", "") == "袋地").astype(int)

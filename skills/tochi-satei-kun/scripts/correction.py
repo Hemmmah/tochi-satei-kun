@@ -9,14 +9,14 @@ ln(adjusted) = ln(case_unit_price) + Σ β_i × (target_x_i - case_x_i)
 import math
 import pandas as pd
 
-# 南向き判定（hedonic.py と同期）
-SOUTH_FACING = {"南", "南東", "南西"}
+# 方位スコア（hedonic.py の DIR_SCORE と同期）
+from hedonic import DIR_SCORE, SOUTH_FACING
 
 # 補正対象の特徴量（hedonic.py の FEATURE_LABELS と整合）
 CORRECTION_FEATURES = [
     "ln_area", "ln_area_sq", "walk_min",
-    "ln_shape", "ln_road_w",
-    "D_south", "D_shidou", "D_fukuro", "D_fuseikei",
+    "ln_shape", "ln_road_w", "ln_far",
+    "dir_score", "D_shidou", "D_fukuro", "D_fuseikei",
     "ln_district_mean", "ln_station_mean",
 ]
 
@@ -24,18 +24,174 @@ CORRECTION_FEATURES = [
 # 標準化補正 = 画地・形状系（事例の個別性を標準画地に揃える）
 # 地域格差 = 地域・街路・交通系（事例の地域性を査定地域に揃える）
 HIJUN_GROUP = {
+    # 標準化補正配下（画地条件：規模・形状・方位）
+    "ln_area":     "標準化補正",
+    "ln_area_sq":  "標準化補正",
     "ln_shape":    "標準化補正",
     "D_fukuro":    "標準化補正",
     "D_fuseikei":  "標準化補正",
-    "ln_area":     "地域格差",
-    "ln_area_sq":  "地域格差",
+    "dir_score":   "標準化補正",   # 方位（採光・通風）は画地条件
+    # 地域格差配下
     "walk_min":    "地域格差",
     "ln_road_w":   "地域格差",
-    "D_south":     "地域格差",
+    "ln_far":      "地域格差",
     "D_shidou":    "地域格差",
     "ln_district_mean": "地域格差",
     "ln_station_mean":  "地域格差",
 }
+
+# 鑑定実務「補修正率と地域格差率」表での詳細分類
+# 標準化補正は「規模 / 画地（形状・方位）」、地域格差は「街路 / 交通接近 / 環境 / 行政」の4区分
+HIJUN_DETAIL_GROUP = {
+    # 標準化補正配下
+    "ln_area":          "規模",
+    "ln_area_sq":       "規模",
+    "ln_shape":         "画地",
+    "D_fukuro":         "画地",
+    "D_fuseikei":       "画地",
+    "dir_score":        "画地",   # 方位も画地条件
+    # 地域格差配下
+    "ln_road_w":        "街路",
+    "D_shidou":         "街路",
+    "walk_min":         "交通接近",
+    "ln_station_mean":  "交通接近",
+    "ln_district_mean": "環境",
+    "ln_far":           "行政",
+}
+
+# サブカテゴリ → 鑑定実務でのラベル（細目）
+HIJUN_DETAIL_LABEL = {
+    "ln_area":          "規模",
+    "ln_area_sq":       "規模²",
+    "ln_shape":         "形状",
+    "D_fukuro":         "袋地",
+    "D_fuseikei":       "不整形",
+    "ln_road_w":        "幅員",
+    "D_shidou":         "私道",
+    "dir_score":        "方位",
+    "walk_min":         "駅徒歩",
+    "ln_station_mean":  "駅勢圏",
+    "ln_district_mean": "地区",
+    "ln_far":           "容積率",
+}
+
+
+def hijun_breakdown_detail(row, hedonic_result, target):
+    """事例1件について「補修正率と地域格差率」表用の詳細内訳を計算。
+
+    Returns:
+        {
+          "事情補正": (label, percent),   # 例: ("正常", 0.0)
+          "時点修正_pct": float,           # +%（年率×経過年数）
+          "建付減価": (label, percent),   # ("更地", None) etc.
+          "規模": [(label, %), ...],       # 標準化補正配下の細目
+          "画地": [(label, %), ...],
+          "化正相乗積": int,               # 100 + 規模%和 + 画地%和（または積×100）
+          "街路": [(label, %), ...],       # 地域格差配下
+          "交通接近": [(label, %), ...],
+          "環境": [(label, %), ...],
+          "行政": [(label, %), ...],       # 現状は空（β未取得）
+          "街路_総和": float,
+          "交通接近_総和": float,
+          "環境_総和": float,
+          "行政_総和": float,
+          "相乗積": int,                   # 地域格差4区分の積×100
+        }
+    """
+    import math
+    out = {
+        "事情補正": ("正常", 0.0),
+        "建付減価": ("更地", None),
+        "規模": [], "画地": [],
+        "街路": [], "交通接近": [], "環境": [], "行政": [],
+    }
+    # 時点修正：adjusted/unit_price から %に変換
+    base = float(row["unit_price"])
+    if "adjusted_unit_price" in row and pd.notna(row["adjusted_unit_price"]):
+        time_mult = float(row["adjusted_unit_price"]) / base if base > 0 else 1.0
+    else:
+        time_mult = 1.0
+    out["時点修正_pct"] = (time_mult - 1.0) * 100
+
+    if not hedonic_result.get("ok"):
+        out["化正相乗積"] = 100
+        out["街路_総和"] = 0.0
+        out["交通接近_総和"] = 0.0
+        out["環境_総和"] = 0.0
+        out["行政_総和"] = 0.0
+        out["相乗積"] = 100
+        return out
+
+    # 方位のラベル動的生成：事例の道路方位を付記して「方位(南)」「方位(東)」等に
+    case_road_dir = str(row.get("road_dir", "")).strip()
+    target_road_dir = str(target.get("前面道路:方位", "")).strip()
+    def _label_for(feat):
+        base = HIJUN_DETAIL_LABEL.get(feat, feat)
+        if feat == "dir_score" and case_road_dir:
+            if target_road_dir and target_road_dir != case_road_dir:
+                return f"{base}({case_road_dir}→{target_road_dir})"
+            return f"{base}({case_road_dir})"
+        return base
+
+    coef = hedonic_result["coefficients"]
+    # 標準化補正の細目
+    hyojunka_log_total = 0.0
+    # 規模（ln_area + ln_area_sq）は1項目に統合して表示
+    kibo_log = 0.0
+    for feat in ("ln_area", "ln_area_sq"):
+        if feat in coef and feat in HIJUN_DETAIL_GROUP:
+            beta = coef[feat]["beta"]
+            tx = _target_feature_value(target, feat)
+            cx = _case_feature_value(row, feat)
+            contrib = beta * (tx - cx)
+            kibo_log += contrib
+            hyojunka_log_total += contrib
+    kibo_pct = (math.exp(kibo_log) - 1.0) * 100
+    if abs(round(kibo_pct, 1)) >= 0.05:
+        out["規模"].append(("規模", kibo_pct))
+
+    # 画地（形状、袋地、不整形、方位）は個別表示
+    for feat in CORRECTION_FEATURES:
+        if feat not in coef or feat not in HIJUN_DETAIL_GROUP:
+            continue
+        if feat in ("ln_area", "ln_area_sq"):
+            continue  # 既に処理済
+        group = HIJUN_DETAIL_GROUP[feat]
+        if group != "画地":
+            continue
+        beta = coef[feat]["beta"]
+        tx = _target_feature_value(target, feat)
+        cx = _case_feature_value(row, feat)
+        contrib = beta * (tx - cx)  # 対数空間の補正
+        pct = (math.exp(contrib) - 1.0) * 100
+        out[group].append((_label_for(feat), pct))
+        hyojunka_log_total += contrib
+    # 標準化補正の総和（相乗積）
+    out["標準化補正_総和"] = (math.exp(hyojunka_log_total) - 1.0) * 100
+    # 化正相乗積 = exp(Σ log) × 100（後方互換のため残す）
+    out["化正相乗積"] = int(round(math.exp(hyojunka_log_total) * 100))
+
+    # 地域格差の細目（4区分）
+    chiiki_subgroups = ("街路", "交通接近", "環境", "行政")
+    subgroup_log = {g: 0.0 for g in chiiki_subgroups}
+    for feat in CORRECTION_FEATURES:
+        if feat not in coef or feat not in HIJUN_DETAIL_GROUP:
+            continue
+        group = HIJUN_DETAIL_GROUP[feat]
+        if group not in chiiki_subgroups:
+            continue
+        beta = coef[feat]["beta"]
+        tx = _target_feature_value(target, feat)
+        cx = _case_feature_value(row, feat)
+        contrib = beta * (tx - cx)
+        pct = (math.exp(contrib) - 1.0) * 100
+        out[group].append((_label_for(feat), pct))
+        subgroup_log[group] += contrib
+
+    for g in chiiki_subgroups:
+        out[f"{g}_総和"] = (math.exp(subgroup_log[g]) - 1.0) * 100
+    out["相乗積"] = int(round(math.exp(sum(subgroup_log.values())) * 100))
+    return out
 
 
 def compute_target_district_mean(scoped_df, target: dict) -> float:
@@ -84,6 +240,13 @@ def _target_feature_value(target: dict, feature: str) -> float:
         return math.log(target["面積(㎡)"])
     if feature == "ln_area_sq":
         return math.log(target["面積(㎡)"]) ** 2
+    if feature == "ln_far":
+        v = target.get("容積率(%)", 200)
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            v = 200.0
+        return math.log(max(v, 1.0))
     if feature == "walk_min":
         return float(target.get("最寄駅:距離(分)", 10))
     if feature == "ln_shape":
@@ -100,8 +263,8 @@ def _target_feature_value(target: dict, feature: str) -> float:
         except (TypeError, ValueError):
             v = 5.0
         return math.log(max(v, 1.0))
-    if feature == "D_south":
-        return 1.0 if str(target.get("前面道路:方位", "")) in SOUTH_FACING else 0.0
+    if feature == "dir_score":
+        return float(DIR_SCORE.get(str(target.get("前面道路:方位", "")).strip(), 0))
     if feature == "D_shidou":
         return 1.0 if target.get("前面道路:種類") == "私道" else 0.0
     if feature == "D_fukuro":
@@ -131,6 +294,14 @@ def _case_feature_value(row: pd.Series, feature: str) -> float:
         return math.log(row["area"])
     if feature == "ln_area_sq":
         return math.log(row["area"]) ** 2
+    if feature == "ln_far":
+        v = row.get("floor_area_ratio")
+        if pd.isna(v) or v is None:
+            return math.log(200.0)
+        try:
+            return math.log(max(float(v), 1.0))
+        except (TypeError, ValueError):
+            return math.log(200.0)
     if feature == "walk_min":
         v = row.get("walk_min")
         return float(v) if pd.notna(v) else 10.0
@@ -150,8 +321,8 @@ def _case_feature_value(row: pd.Series, feature: str) -> float:
             return math.log(max(float(v), 1.0))
         except (TypeError, ValueError):
             return math.log(5.0)
-    if feature == "D_south":
-        return 1.0 if str(row.get("road_dir", "")) in SOUTH_FACING else 0.0
+    if feature == "dir_score":
+        return float(DIR_SCORE.get(str(row.get("road_dir", "")).strip(), 0))
     if feature == "D_shidou":
         return 1.0 if row.get("road_type") == "私道" else 0.0
     if feature == "D_fukuro":

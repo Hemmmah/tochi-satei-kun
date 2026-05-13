@@ -236,6 +236,27 @@ def load_koji_geojson(path, recent_years: int = 5) -> pd.DataFrame:
         except (TypeError, ValueError):
             continue
         std_id = "-".join(str(p.get(f"L01_{i:03d}", "")) for i in (1, 2, 3))
+        # 公示地価地点の追加属性（概要表示用）
+        def _safe(field, default=""):
+            v = p.get(field)
+            if v in (None, "", "_"):
+                return default
+            return v
+        attrs = {
+            "address": str(_safe("L01_025", "")),
+            "area_sqm": _safe("L01_027", None),  # 地積
+            "use_detail": str(_safe("L01_029", "")),  # 利用区分
+            "frontage_ratio": _safe("L01_036", None),  # 間口比率
+            "depth_ratio": _safe("L01_037", None),  # 奥行比率
+            "road_type": str(_safe("L01_040", "")),  # 前面道路区分
+            "road_dir": str(_safe("L01_041", "")),  # 前面道路方位
+            "road_width": _safe("L01_042", None),  # 前面道路幅員
+            "station": str(_safe("L01_048", "")),  # 最寄駅名
+            "station_dist_m": _safe("L01_050", None),  # 駅距離(m)
+            "zoning": str(_safe("L01_051", "")),  # 用途地域
+            "building_coverage": _safe("L01_057", None),  # 建ぺい率
+            "floor_area_ratio": _safe("L01_058", None),  # 容積率
+        }
         # L01_105 が ref_year 価格、L01_104 が ref_year-1, ...
         for i in range(recent_years):
             field = f"L01_{105-i:03d}"
@@ -246,7 +267,7 @@ def load_koji_geojson(path, recent_years: int = 5) -> pd.DataFrame:
             except (TypeError, ValueError):
                 price = None
             if price and price > 0:
-                rows.append({
+                row = {
                     "標準地番号": std_id,
                     "prefecture": "東京都",
                     "city": city,
@@ -254,7 +275,9 @@ def load_koji_geojson(path, recent_years: int = 5) -> pd.DataFrame:
                     "price_date": date(year, 1, 1),
                     "price_per_sqm": price,
                     "use": p.get("L01_028", ""),
-                })
+                }
+                row.update(attrs)
+                rows.append(row)
     return pd.DataFrame(rows).reset_index(drop=True)
 
 
