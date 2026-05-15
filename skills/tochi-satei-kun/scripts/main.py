@@ -520,7 +520,10 @@ def run_pipeline(property_path: str, mlit_path: str, koji_path: str, kijun_path:
     hed_pred = _hedonic_population_predict(hed, target)
 
     # 9. 集約：top3 の中央値で査定価格、top3 の Q1/中央/Q3 でレンジ生成（案②）
-    assessment = assess(corrected, target["面積(㎡)"])
+    # v1.2.5: hijun_rows の試算値（÷ direction、上位3桁丸め済）を使い、
+    # 業者用シート冒頭の査定価格・2価格サマリ・価格レンジを 比準表 試算値と完全に同源に揃える。
+    shisan_df = pd.DataFrame({"corrected_unit_price": [float(h["試算値"]) for h in hijun_rows]})
+    assessment = assess(shisan_df, target["面積(㎡)"])
 
     # 10. 地域標準価格チェック（地区一致優先＋時点補間、1地点に絞る）
     standard_check = _standard_price_for_city(

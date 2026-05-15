@@ -76,6 +76,23 @@ HIJUN_DETAIL_LABEL = {
 }
 
 
+def _round_3sig(n):
+    """上位3桁に四捨五入。例: 1,324,735 → 1,320,000、989,581 → 990,000。
+
+    v1.2.5: 比準表の試算値・標準画地の価格を本物件査定価格の単価（上位3桁）と
+    同じ精度で揃え、業者用シート冒頭の査定価格との数値整合・検算性を確保。
+    """
+    if n is None or n == 0:
+        return n
+    sign = -1 if n < 0 else 1
+    n_abs = abs(n)
+    if n_abs < 1000:
+        return n
+    digits = int(math.log10(n_abs)) + 1
+    factor = 10 ** (digits - 3)
+    return sign * round(n_abs / factor) * factor
+
+
 def hijun_breakdown_detail(row, hedonic_result, target):
     """事例1件について「補修正率と地域格差率」表用の詳細内訳を計算。
 
@@ -458,6 +475,8 @@ def hijun_correction_for_case(row: pd.Series, hedonic_result: dict, target: dict
     # 上=100, 下=案件評点 → 補正率 = 100/案件評点 を掛ける = 案件評点/100 で割る
     # （hyojunka_mult, chiiki_mult が 「案件評点/100」 の意味を持つ）
     shisan = base_price * jijo_mult * time_mult * kentsuke_mult / hyojunka_mult / chiiki_mult
+    # v1.2.5: 試算値を上位3桁に四捨五入（業者用シート冒頭の査定価格単価と整合）
+    shisan = _round_3sig(shisan)
 
     return {
         "事情補正": jijo_mult,

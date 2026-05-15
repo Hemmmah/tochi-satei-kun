@@ -444,12 +444,15 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
         ws.row_dimensions[r].height = 32
         r += 1
         # 試算値の中央値を標準画地の価格に
+        # v1.2.5: 試算値は correction.py 側で上位3桁に丸め済み。median 計算後も
+        # （偶数件で平均が走るケースに備えて）上位3桁に再度丸めて精度を揃える。
         n_rows = len(hijun_rows)
         shisan_list = sorted(h["試算値"] for h in hijun_rows)
         if n_rows % 2 == 1:
             hijun_central = shisan_list[n_rows // 2]
         else:
             hijun_central = (shisan_list[n_rows // 2 - 1] + shisan_list[n_rows // 2]) / 2
+        hijun_central = _round_3sig(hijun_central)
 
         block_start_row = r
         center_align = Alignment(horizontal="center", vertical="center")
