@@ -122,15 +122,16 @@ def hijun_breakdown_detail(row, hedonic_result, target):
         out["相乗積"] = 100
         return out
 
-    # 方位のラベル動的生成：事例の道路方位を付記して「方位(南)」「方位(東)」等に
+    # v1.2.1: Style B — 事例側の値のみラベルに付記。査定対象側の値は個別格差シートに転記される設計。
+    # 方位は事例の道路方位「方位(南)」「方位(東)」、地区は事例の地区「地区(赤堤)」等。
     case_road_dir = str(row.get("road_dir", "")).strip()
-    target_road_dir = str(target.get("前面道路:方位", "")).strip()
+    case_district = str(row.get("district", "")).strip()
     def _label_for(feat):
         base = HIJUN_DETAIL_LABEL.get(feat, feat)
         if feat == "dir_score" and case_road_dir:
-            if target_road_dir and target_road_dir != case_road_dir:
-                return f"{base}({case_road_dir}→{target_road_dir})"
             return f"{base}({case_road_dir})"
+        if feat == "ln_district_mean" and case_district:
+            return f"{base}({case_district})"
         return base
 
     coef = hedonic_result["coefficients"]

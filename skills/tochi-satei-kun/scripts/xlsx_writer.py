@@ -559,8 +559,17 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
             return f"▲{abs(v)}"
 
         def _filter_nonzero(items):
-            """サブ項目のうち ±0（絶対値<0.05）を除外。"""
-            return [(lbl, pct) for lbl, pct in items if abs(round(pct, 1)) >= 0.05]
+            """サブ項目のうち ±0（絶対値<0.05）を除外。
+            v1.2.1: 「地区」エントリは β=0.81 と高インパクトの最重要要因なので、
+            ±0でも常時表示する（事例と本物件の地区が同じことを白箱性として明示）。
+            """
+            keep = []
+            for lbl, pct in items:
+                if lbl.startswith("地区"):
+                    keep.append((lbl, pct))  # 地区は常時表示
+                elif abs(round(pct, 1)) >= 0.05:
+                    keep.append((lbl, pct))
+            return keep
 
         def _join_subitems(items, hide_zero=True):
             """[(label, pct), ...] を multi-line text に。±0は非表示（hide_zero=True）。"""
@@ -652,18 +661,20 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
             return int(iv) if iv == int(iv) else iv
 
         # 個別格差 縦表（列A=ラベル、列B=値）
-        # 角地
-        kado_val = _fmt_kobetsu_v(primary_h_gy.get("個別格差_角地", 0))
-        _set(ws, r, 1, "角地", font=LABEL_FONT, border=True, align=center_align_gy)
-        _set(ws, r, 2, kado_val, font=VALUE_FONT, border=True, align=center_align_gy)
-        kado_row_gy = r
+        # v1.2.1: target の属性をラベル括弧に転記（Style B）、target が中間画地の場合は角地行を非表示
 
-        # 査定価格の算定 1行目：標準画地の試算値（D列）
-        _set(ws, r, 4, hijun_central_val,
-             font=Font(name="游ゴシック", size=12, bold=True),
-             border=True, align=center_align_gy, number_format="#,##0")
-        # 横向きの「× 総和」「÷ 100」「≒」「案件査定価格」を後段の行で表現
-        r += 1
+        # 角地（target に角地補正率 > 0 が明示入力された場合のみ表示）
+        target_kado_val_gy = primary_h_gy.get("個別格差_角地", 0)
+        kado_row_gy = None  # 非表示の場合は None
+        if abs(round(target_kado_val_gy, 1)) >= 0.05:
+            _set(ws, r, 1, "角地（角地）", font=LABEL_FONT, border=True, align=center_align_gy)
+            _set(ws, r, 2, _fmt_kobetsu_v(target_kado_val_gy),
+                 font=VALUE_FONT, border=True, align=center_align_gy)
+            kado_row_gy = r
+            r += 1
+
+        # 算定式の視覚アンカー行（角地が非表示なら方位の行に揃える）
+        first_kobetsu_row = kado_row_gy if kado_row_gy is not None else r
 
         # 方位（target の方位を表示ラベルに）
         target_dir_gy = str(target.get("前面道路:方位", "")).strip()
@@ -672,25 +683,26 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
         _set(ws, r, 1, houi_label_gy, font=LABEL_FONT, border=True, align=center_align_gy)
         _set(ws, r, 2, houi_val, font=VALUE_FONT, border=True, align=center_align_gy)
         houi_row_gy = r
-
-        # 査定価格の算定 2行目：× B17(総和) / 100 ≒ 案件査定価格
-        # 算定行の構成（査定価格の算定）：
-        #   D=1,079,774 (試算値) | E="×" | F=総和=B17 | G="≒" | H=案件査定価格
-        soan_row_placeholder = None  # 後でセットする
         r += 1
 
-        # 不整形
+        # 不整形（target の土地形状を表示ラベルに、v1.2.1）
+        target_shape_gy = str(target.get("土地の形状", "")).strip()
+        fusei_label_gy = f"不整形（{target_shape_gy}）" if target_shape_gy else "不整形"
         fusei_val = _fmt_kobetsu_v(primary_h_gy.get("個別格差_不整形", 0))
-        _set(ws, r, 1, "不整形", font=LABEL_FONT, border=True, align=center_align_gy)
+        _set(ws, r, 1, fusei_label_gy, font=LABEL_FONT, border=True, align=center_align_gy)
         _set(ws, r, 2, fusei_val, font=VALUE_FONT, border=True, align=center_align_gy)
         fusei_row_gy = r
         r += 1
 
-        # 総和（Excel関数式）
+        # 総和（Excel関数式）— 表示中の格差行のみを積算
         _set(ws, r, 1, "総和", font=LABEL_FONT, fill=PatternFill("solid", fgColor="FFF2CC"),
              border=True, align=center_align_gy)
-        soan_formula_gy = (f"=(100+B{kado_row_gy})/100*(100+B{houi_row_gy})/100"
-                           f"*(100+B{fusei_row_gy})/100*100")
+        factor_refs_gy = []
+        if kado_row_gy is not None:
+            factor_refs_gy.append(f"(100+B{kado_row_gy})/100")
+        factor_refs_gy.append(f"(100+B{houi_row_gy})/100")
+        factor_refs_gy.append(f"(100+B{fusei_row_gy})/100")
+        soan_formula_gy = "=" + "*".join(factor_refs_gy) + "*100"
         soan_cell_gy = ws.cell(row=r, column=2, value=soan_formula_gy)
         soan_cell_gy.font = Font(name="游ゴシック", size=10, bold=True)
         soan_cell_gy.border = BORDER
@@ -700,52 +712,48 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
         soan_row_gy = r
         r += 1
 
-        # ====== 査定価格の算定 行（個別格差ブロックの隣、kobetsu_start_row+1 行から横並び）======
+        # ====== 査定価格の算定 行（個別格差ブロックの隣、first_kobetsu_row 行から横並び）======
         # 算定式の表示行：D=試算値, E="×", F=総和参照, G="÷ 100 ≒", H=案件査定価格
-        calc_row = kobetsu_start_row + 2  # 個別格差ヘッダの次の行に揃える
-        # D列の試算値は既に書き込み済み（kado_row_gy）→ calc_row はその次
+        # v1.2.1: 視覚アンカーは first_kobetsu_row（角地非表示時は方位の行）
 
-        # 試算値 (D列、merge 3 rows for visual weight) — 既に kado_row_gy(=kobetsu_start_row+1) に設定済み
-        # その下に "標準画地の試算値" ラベル
-        _set(ws, kado_row_gy, 4, hijun_central_val,
+        # 試算値 (D列、first_kobetsu_row 行)
+        _set(ws, first_kobetsu_row, 4, hijun_central_val,
              font=Font(name="游ゴシック", size=12, bold=True),
              border=True, align=center_align_gy, number_format="#,##0")
-        _set(ws, kado_row_gy+1, 4, "標準画地の試算値(円/㎡)",
+        _set(ws, first_kobetsu_row+1, 4, "標準画地の試算値(円/㎡)",
              font=Font(name="游ゴシック", size=9, italic=True, color="595959"),
              align=center_align_gy)
 
-        # × 演算子 (E列、kado_row_gy 行)
-        _set(ws, kado_row_gy, 5, "×",
+        # × 演算子 (E列)
+        _set(ws, first_kobetsu_row, 5, "×",
              font=Font(name="游ゴシック", size=14, bold=True),
              align=center_align_gy)
 
-        # 総和/100 (F列、kado_row_gy 行) — = B{soan_row_gy} / 100 を表示
-        # 分子=B{soan_row_gy}, 分母=100 を 2行縦に表示
-        soan_ref_cell = ws.cell(row=kado_row_gy, column=6, value=f"=B{soan_row_gy}")
+        # 総和/100 (F列) — 分子=B{soan_row_gy}, 分母=100 を 2行縦に表示
+        soan_ref_cell = ws.cell(row=first_kobetsu_row, column=6, value=f"=B{soan_row_gy}")
         soan_ref_cell.font = Font(name="游ゴシック", size=11, bold=True)
         soan_ref_cell.border = Border(left=THIN, right=THIN, top=THIN, bottom=Side(border_style="thin", color="000000"))
         soan_ref_cell.alignment = center_align_gy
         soan_ref_cell.number_format = "0.00"
-        denom_cell = ws.cell(row=kado_row_gy+1, column=6, value=100)
+        denom_cell = ws.cell(row=first_kobetsu_row+1, column=6, value=100)
         denom_cell.font = Font(name="游ゴシック", size=11, bold=True)
         denom_cell.border = Border(left=THIN, right=THIN, top=Side(border_style="thin", color="000000"), bottom=THIN)
         denom_cell.alignment = center_align_gy
 
         # ≒ (G列)
-        _set(ws, kado_row_gy, 7, "≒",
+        _set(ws, first_kobetsu_row, 7, "≒",
              font=Font(name="游ゴシック", size=14, bold=True),
              align=center_align_gy)
 
-        # 案件査定価格 (H列、kado_row_gy 行) — Excel関数式
-        # ユーザー参照式: =ROUND(D14*B17, -(LEN(INT(D14*B17))-3))/100
-        anken_inner = f"D{kado_row_gy}*B{soan_row_gy}"
+        # 案件査定価格 (H列) — Excel関数式
+        anken_inner = f"D{first_kobetsu_row}*B{soan_row_gy}"
         anken_formula_gy = f"=ROUND({anken_inner},-(LEN(INT({anken_inner}))-3))/100"
-        anken_cell_gy = ws.cell(row=kado_row_gy, column=8, value=anken_formula_gy)
+        anken_cell_gy = ws.cell(row=first_kobetsu_row, column=8, value=anken_formula_gy)
         anken_cell_gy.font = Font(name="游ゴシック", size=14, bold=True, color="C00000")
         anken_cell_gy.border = BORDER
         anken_cell_gy.alignment = center_align_gy
         anken_cell_gy.number_format = "#,##0"
-        _set(ws, kado_row_gy+1, 8, "案件査定価格(円/㎡)",
+        _set(ws, first_kobetsu_row+1, 8, "案件査定価格(円/㎡)",
              font=Font(name="游ゴシック", size=9, italic=True, color="595959"),
              align=center_align_gy)
 
@@ -1613,14 +1621,17 @@ def _write_kokyaku_sheet(wb: Workbook, ctx: dict):
             iv = round(v, 1)
             return int(iv) if iv == int(iv) else iv
 
-        # 角地（青字）
-        _set(ws, r, 2, "角地", font=BLUE_LABEL_FONT, border=BORDER_FULL, align=ALIGN_CENTER_H)
-        kado_val = _fmt_kobetsu(primary_h.get("個別格差_角地", 0))
-        _set(ws, r, 3, kado_val, font=BLUE_VALUE_FONT, border=BORDER_FULL, align=ALIGN_CENTER_H)
-        kado_row = r
-        r += 1
+        # v1.2.1: target が中間画地（角地補正率(%)未入力 or 0）の場合は角地行を非表示
+        target_kado_val = primary_h.get("個別格差_角地", 0)
+        kado_row = None
+        if abs(round(target_kado_val, 1)) >= 0.05:
+            _set(ws, r, 2, "角地（角地）", font=BLUE_LABEL_FONT, border=BORDER_FULL, align=ALIGN_CENTER_H)
+            _set(ws, r, 3, _fmt_kobetsu(target_kado_val),
+                 font=BLUE_VALUE_FONT, border=BORDER_FULL, align=ALIGN_CENTER_H)
+            kado_row = r
+            r += 1
 
-        # 方位（青字）
+        # 方位（青字、target の方位をラベルに）
         target_dir = str(target.get("前面道路:方位", "")).strip()
         houi_label = f"方位（{target_dir}）" if target_dir else "方位"
         _set(ws, r, 2, houi_label, font=BLUE_LABEL_FONT, border=BORDER_FULL, align=ALIGN_CENTER_H)
@@ -1629,17 +1640,23 @@ def _write_kokyaku_sheet(wb: Workbook, ctx: dict):
         houi_row = r
         r += 1
 
-        # 不整形（青字）
-        _set(ws, r, 2, "不整形", font=BLUE_LABEL_FONT, border=BORDER_FULL, align=ALIGN_CENTER_H)
+        # 不整形（青字、v1.2.1: target の土地形状をラベルに）
+        target_shape = str(target.get("土地の形状", "")).strip()
+        fusei_label = f"不整形（{target_shape}）" if target_shape else "不整形"
+        _set(ws, r, 2, fusei_label, font=BLUE_LABEL_FONT, border=BORDER_FULL, align=ALIGN_CENTER_H)
         fusei_val = _fmt_kobetsu(primary_h.get("個別格差_不整形", 0))
         _set(ws, r, 3, fusei_val, font=BLUE_VALUE_FONT, border=BORDER_FULL, align=ALIGN_CENTER_H)
         fusei_row = r
         r += 1
 
-        # 総和（Excel関数式、黒字）
+        # 総和（Excel関数式、黒字）— 表示中の格差行のみを積算
         _set(ws, r, 2, "総和", font=TMPL_FONT_BOLD, border=BORDER_FULL, align=ALIGN_CENTER_H)
-        soan_formula = (f"=(100+C{kado_row})/100*(100+C{houi_row})/100"
-                        f"*(100+C{fusei_row})/100*100")
+        factor_refs_k = []
+        if kado_row is not None:
+            factor_refs_k.append(f"(100+C{kado_row})/100")
+        factor_refs_k.append(f"(100+C{houi_row})/100")
+        factor_refs_k.append(f"(100+C{fusei_row})/100")
+        soan_formula = "=" + "*".join(factor_refs_k) + "*100"
         soan_cell = ws.cell(row=r, column=3, value=soan_formula)
         soan_cell.font = TMPL_FONT
         soan_cell.border = BORDER_FULL
