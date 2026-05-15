@@ -11,7 +11,7 @@ description: 日本初のOSS（オープンソース）AVM、「AVM界のLinux�
 
 中核価値は **白箱性**：袋地・私道・形状・面積などの個別格差補正を、ヘドニック係数として **都度回帰で算定し全開示** する。HowMa等の競合は時点修正のみ係数を開示し、個別補正は黒箱だが、本スキルは12特徴量（規模・形状・方位・道路・容積率・私道・袋地・不整形・地区平均・駅勢圏など）のβ係数・p値・標準誤差・自由度調整済 R² を業者用シートに全開示する。
 
-**最新バージョン**: v1.2.7（2026-05-16）
+**最新バージョン**: v1.2.8（2026-05-16）
 
 ### MVP のスコープ：正式査定（査定書作成）一本
 
@@ -186,10 +186,35 @@ ln(adjusted_unit_price) = β₀
 - 「土地価格査定クン」
 - 「{住所} の土地査定をお願い」
 
+### 重要：スクリプトファイルの完全性検証（v1.2.8、Cowork 環境向け）
+
+Cowork サンドボックス等の環境では、`scripts/main.py`・`xlsx_writer.py` 等のスクリプトを **AI が「末尾途切れ」と誤判定して独自 workaround を作成してしまう** 現象が観測されている。これを防ぐため、スクリプト実行前に **必ず以下の整合性確認** を行うこと：
+
+```bash
+# 各スクリプトの末尾を確認（途切れていないか）
+tail -3 scripts/main.py
+tail -3 scripts/xlsx_writer.py
+tail -3 scripts/correction.py
+tail -3 scripts/copy_to_desktop.py
+```
+
+期待される末尾は以下のいずれかで、**`if __name__ == "__main__":` ブロックや `return` 文で正常終了している** こと：
+
+- `main.py`：`if __name__ == "__main__":` ブロック + `main()` 呼び出し
+- `xlsx_writer.py`：`return output_path`（write_xlsx 関数の最終行）
+- `correction.py`：`print(corrected[...])`（テストブロックの最終行）
+- `copy_to_desktop.py`：`if __name__ == "__main__":` ブロック + `main()` 呼び出し
+
+**末尾が確認できた場合、ファイルは完全である**（Python の構文として valid なら走る）。途切れているように見えるのは AI 側の読み込み上限（推定 20-25KB）で表示が切れているだけのことが多いため、**独自 workaround を作らず、そのまま `python scripts/main.py ...` を実行すること**。GitHub 上のリポジトリは正規版である前提で動かしてよい。
+
 ### ケース1：必要なファイルと物件情報が揃っている
 
 ```bash
+# Step 1: 査定パイプライン実行
 python scripts/main.py <property.json> <mlit.csv> <koji.geojson> --out <出力先>
+
+# Step 2: 生成された xlsx を必ずデスクトップにコピー（MAX_PATH 259 文字制限回避）
+python scripts/copy_to_desktop.py <生成された xlsx のフルパス>
 ```
 
 入力は2つ（MLIT取引価格情報CSV、地価公示GeoJSON）。基準地価GeoJSON は **アルゴリズム未対応のため使用不可**。
@@ -202,31 +227,25 @@ python scripts/main.py <property.json> <mlit.csv> <koji.geojson> --out <出力�
 
 「冒頭確認事項」§2 の必須項目を1つずつ会話で確認し、JSON化してから ケース1 のフローへ。
 
-### 生成後の必須操作：xlsx を短いパスにコピー（v1.2.6）
+### 生成後の必須操作：xlsx を短いパスにコピー（v1.2.8 強化）
 
-**xlsx 生成完了後、必ず以下を実行してください**。これは Windows の MAX_PATH（259 文字）制限により、Cowork や Claude Desktop のサンドボックス配下に出力された xlsx がそのままでは Excel で開けないため、エンドユーザーが Excel で開ける短いパスに必ず配置する運用が必要です。
+Windows の MAX_PATH（259 文字）制限により、Cowork/Claude Desktop サンドボックス配下に出力された xlsx は **エンドユーザーが Excel で開けない**。必ず以下を実行すること：
 
 ```bash
-# 1. ユーザーのデスクトップへコピー（Bash 経由で実行）
-#    Windows: %USERPROFILE%\Desktop\ または %USERPROFILE%\OneDrive\Desktop\ 等
-#    Mac/Linux: ~/Desktop/
-
-# 例：Windows 日本語環境（OneDrive 同期あり）
-cp "<生成された xlsx のフルパス>" "/c/Users/<ユーザー名>/OneDrive/デスクトップ/"
-
-# または英語環境
-cp "<生成された xlsx のフルパス>" "~/Desktop/"
+python scripts/copy_to_desktop.py <生成された xlsx のフルパス>
 ```
 
-実装ガイドライン：
+`copy_to_desktop.py` は **2KB の独立スクリプト** で、以下の Desktop パス候補を順に試行する：
 
-1. `python scripts/main.py ...` 完走後、ファイル絶対パスを取得
-2. `os.path.expanduser("~/Desktop/")` をまず試す。存在すればそこへ `shutil.copy`
-3. 存在しない場合は OneDrive 系（`~/OneDrive/Desktop/`、`~/OneDrive/デスクトップ/`）を試す
-4. すべて失敗した場合はユーザーに「xlsx は <元パス> に生成されました。短いパスにコピーしてから Excel で開いてください」とメッセージで案内
-5. 成功したらユーザーに「**デスクトップに `<ファイル名>` を配置しました**。そこから Excel で開いてください」と明示
+1. `~/OneDrive/デスクトップ`（日本語 Windows + OneDrive 同期）
+2. `~/OneDrive/Desktop`（英語 Windows + OneDrive 同期）
+3. `~/Desktop`（ローカル / Mac / Linux）
 
-**この操作を省略すると、エンドユーザー（仲介業者）は Excel で xlsx を開けないため、必ず実施すること**。
+成功時：`[OK] デスクトップにコピー: <パス>` を出力 → ユーザーに「**デスクトップに `<ファイル名>` を配置しました**」と明示すること。
+
+失敗時：元パスを案内し、手動コピーを依頼すること。
+
+**この copy_to_desktop.py 呼び出しを省略すると、エンドユーザー（仲介業者）は Excel で xlsx を開けず、本ツールの実用性が崩壊する**。必ず main.py の直後に呼ぶこと。
 
 ---
 
@@ -278,6 +297,7 @@ cp "<生成された xlsx のフルパス>" "~/Desktop/"
 
 ## バージョン履歴
 
+- **v1.2.8 (2026-05-16)**: (B) SKILL.md に **「スクリプトファイルの完全性検証」セクション** を追加し、Cowork の AI が「末尾途切れ」と誤判定して workaround を作成する挙動を抑止（tail コマンドで末尾を確認し、独自書き換えをしないよう明示）。(C) `copy_to_desktop.py`（2KB の独立ヘルパー）を新設。`scripts/main.py` 実行後に必ず `python scripts/copy_to_desktop.py <xlsx_path>` を呼ぶ運用を SKILL.md に明記。AI が main.py を workaround で書き換えても、デスクトップコピーは別レイヤーで確実に実行されるよう二重化
 - **v1.2.7 (2026-05-16)**: (A) `main.py` に **デスクトップ自動コピー処理** を組み込み（SKILL.md 指示に依存せず Python 側で確実に実行）。(B) `xlsx_writer.py`（1879 行・100KB）を **4 モジュールに分割**（`xlsx_common.py`、`xlsx_gyosha_sheet.py`、`xlsx_kokyaku_sheet.py`、新 `xlsx_writer.py`=3.7KB）。Cowork の Claude が大きなファイルを「末尾途切れ」と誤判定して workaround を作成する問題を緩和し、エントリポイント `xlsx_writer.py` を確実に完全読み込みできるサイズに圧縮
 - **v1.2.6 (2026-05-15)**: SKILL.md に **「生成後の必須操作」セクション** を追加。xlsx 完成後にユーザーのデスクトップへ自動コピーする運用を明文化（Windows の MAX_PATH 259 文字制限により、Cowork/Claude Desktop サンドボックスの深いパスでは Excel が xlsx を開けない問題への対応）。エンドユーザー（仲介業者）が Excel で xlsx を確実に開けるようにする UX 改善
 - **v1.2.5 (2026-05-15)**: **試算値・標準画地の価格を上位 3 桁に四捨五入**。業者用シート冒頭の「案件査定価格」単価（既に上位 3 桁丸め）と精度を揃え、比準表 → 標準画地の価格 → 案件査定価格 の数値整合・検算性を確保。例：手計算 1,324,735 → xlsx 試算値 **1,320,000**（v1.2.4 の 1,324,735 から上位 3 桁丸めへ変更）
