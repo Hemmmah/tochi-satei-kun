@@ -444,8 +444,10 @@ def hijun_correction_for_case(row: pd.Series, hedonic_result: dict, target: dict
             elif group == "地域格差":
                 chiiki_mult *= mult
 
-    # 試算値 = 取引価格 × 全補正
-    shisan = base_price * jijo_mult * time_mult * kentsuke_mult * hyojunka_mult * chiiki_mult
+    # v1.2.3: 標準化補正・地域格差は「÷」で適用（鑑定書 2 行式の慣習に整合）
+    # 上=100, 下=案件評点 → 補正率 = 100/案件評点 を掛ける = 案件評点/100 で割る
+    # （hyojunka_mult, chiiki_mult が 「案件評点/100」 の意味を持つ）
+    shisan = base_price * jijo_mult * time_mult * kentsuke_mult / hyojunka_mult / chiiki_mult
 
     return {
         "事情補正": jijo_mult,

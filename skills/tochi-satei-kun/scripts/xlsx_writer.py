@@ -434,16 +434,16 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
         r += 1
         # 列構成（8列、建付減価削除済み）：
         # 1=事例番号, 2=取引価格, 3=事情補正, 4=時点修正,
-        # 5=標準化補正, 6=地域格差, 7=試算値, 8=比準値
+        # 5=標準化補正, 6=地域格差, 7=試算値, 8=標準画地の価格
         header_fill = PatternFill("solid", fgColor="D9E1F2")
         for j, h in enumerate(["事例番号", "取引価格(円/㎡)", "事情補正", "時点修正",
                                "標準化補正", "地域格差",
-                               "試算値(円/㎡)", "比準値(円/㎡)"]):
+                               "試算値(円/㎡)", "標準画地の価格(円/㎡)"]):
             _set(ws, r, j+1, h, font=LABEL_FONT, fill=header_fill, border=True,
                  align=Alignment(horizontal="center", vertical="center", wrap_text=True))
         ws.row_dimensions[r].height = 32
         r += 1
-        # 試算値の中央値を比準値に
+        # 試算値の中央値を標準画地の価格に
         n_rows = len(hijun_rows)
         shisan_list = sorted(h["試算値"] for h in hijun_rows)
         if n_rows % 2 == 1:
@@ -499,7 +499,7 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
                  font=font_top, fill=fill, border=True, align=center_align)
             r += 2
         block_end_row = r - 1
-        # 比準値列（8列目）を全事例マージ
+        # 標準画地の価格列（8列目）を全事例マージ
         ws.merge_cells(start_row=block_start_row, start_column=8,
                        end_row=block_end_row, end_column=8)
         _set(ws, block_start_row, 8, f"{int(round(hijun_central)):,}",
@@ -509,7 +509,7 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
         # 注釈
         ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
         _set(ws, r, 1,
-             "※ 事例番号 = MLITデータ原本の行番号。比準値 = 3事例の試算値の中央値。"
+             "※ 事例番号 = MLITデータ原本の行番号。標準画地の価格 = 3事例の試算値の中央値。"
              "各補正は「分子/分母」形式（上段=分子、下段=分母）。「100/-」は補正非該当。"
              "標準化補正＝画地条件（規模, 形状, 方位, 袋地, 不整形）、"
              "地域格差＝地域・街路・交通要因（道路幅員, 駅徒歩, 容積率, 私道, 地区平均, 駅平均）のヘドニック係数積。"
@@ -641,7 +641,7 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
         center_align_gy = Alignment(horizontal="center", vertical="center")
         right_align_gy = Alignment(horizontal="right", vertical="center")
 
-        # 標準画地の試算値（= 比準値 = 3事例の試算値の中央値）— 既に比準表で計算済み
+        # 標準画地の試算値（= 標準画地の価格 = 3事例の試算値の中央値）— 既に比準表で計算済み
         hijun_central_val = int(round(hijun_central))
 
         # 個別格差ブロック開始行
@@ -1596,9 +1596,10 @@ def _write_kokyaku_sheet(wb: Workbook, ctx: dict):
         ws.merge_cells(start_row=r, start_column=3, end_row=r+1, end_column=3)
         _set(ws, r, 2, "標準画地の試算値",
              font=TMPL_FONT_BOLD, border=BORDER_FULL, align=ALIGN_CENTER)
-        # 標準化補正・地域格差は「上=100, 下=案件評点」配置 → 倍率 = 下/上
+        # v1.2.3: 標準化補正・地域格差は「上=100, 下=案件評点」配置 → 補正率 = 100/案件評点
+        # 即ち expr では num/den（上/下）で割る形にする
         expr = (f"C{price_row}*C{jijo_num_row}/100*C{time_num_row}/100"
-                f"*C{shape_den_row}/C{shape_num_row}*C{chi_den_row}/C{chi_num_row}")
+                f"*C{shape_num_row}/C{shape_den_row}*C{chi_num_row}/C{chi_den_row}")
         formula = f"=ROUND({expr},-(LEN(INT({expr}))-3))"
         formula_cell = ws.cell(row=r, column=3, value=formula)
         formula_cell.font = TMPL_FONT_SHISAN
