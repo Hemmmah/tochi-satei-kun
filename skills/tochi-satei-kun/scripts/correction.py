@@ -444,6 +444,16 @@ def hijun_correction_for_case(row: pd.Series, hedonic_result: dict, target: dict
             elif group == "地域格差":
                 chiiki_mult *= mult
 
+    # v1.2.4: 検算性のため、表示値（小数点第1位の % 表記）に丸めた上で試算値を算定。
+    # これにより、業者用シート比準表の表示数値だけで手計算しても、xlsx の試算値と
+    # 完全一致するようになる（鑑定書の再現可能性ポリシー）。
+    def _round_to_display(mult):
+        return round(mult * 100, 1) / 100
+
+    time_mult = _round_to_display(time_mult)
+    hyojunka_mult = _round_to_display(hyojunka_mult)
+    chiiki_mult = _round_to_display(chiiki_mult)
+
     # v1.2.3: 標準化補正・地域格差は「÷」で適用（鑑定書 2 行式の慣習に整合）
     # 上=100, 下=案件評点 → 補正率 = 100/案件評点 を掛ける = 案件評点/100 で割る
     # （hyojunka_mult, chiiki_mult が 「案件評点/100」 の意味を持つ）
