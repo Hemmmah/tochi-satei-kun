@@ -153,10 +153,11 @@ def _format_hijun_corr(multiplier, applies=True, mode="auto"):
     if mode == "top":
         return f"{multiplier*100:.1f}/100"
     if mode == "bottom":
-        return f"100/{100/multiplier:.1f}"
+        # 上=100, 下=案件評点(=mult*100) — 倍率 = 下/上
+        return f"100/{multiplier*100:.1f}"
     if multiplier > 1.0:
         return f"{multiplier*100:.1f}/100"
-    return f"100/{100/multiplier:.1f}"
+    return f"100/{multiplier*100:.1f}"
 
 
 def _hijun_top_bottom(multiplier, applies=True, mode="auto"):
@@ -171,10 +172,11 @@ def _hijun_top_bottom(multiplier, applies=True, mode="auto"):
     if mode == "top":
         return (round(100 * multiplier, 1), 100)
     if mode == "bottom":
-        return (100, round(100 / multiplier, 1))
+        # 上=100, 下=案件評点(=mult*100) — 倍率 = 下/上
+        return (100, round(100 * multiplier, 1))
     if multiplier > 1.0:
         return (round(100 * multiplier, 1), 100)
-    return (100, round(100 / multiplier, 1))
+    return (100, round(100 * multiplier, 1))
 
 
 def _round_3sig(n):
@@ -526,19 +528,20 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
         # 2段ヘッダ：上段は「地域格差」のグループラベル
         hdr_fill = PatternFill("solid", fgColor="D9E1F2")
         col_labels_top = ["事例番号", "事情補正", "時点修正",
-                          "標準化補正", "地域格差", "", "", "", "相乗積"]
+                          "標準化補正", "地域格差", "", "", "", ""]
         for j, h in enumerate(col_labels_top):
             _set(ws, r, j+1, h, font=LABEL_FONT, fill=hdr_fill, border=True,
                  align=Alignment(horizontal="center", vertical="center", wrap_text=True))
-        # 地域格差は4区分マージ（列5-8）
-        ws.merge_cells(start_row=r, start_column=5, end_row=r, end_column=8)
-        # 単独列は2段マージ（縦）
-        for col in [1, 2, 3, 4, 9]:
+        # 地域格差は4区分＋相乗積マージ（列5-9）— 相乗積=地域格差の積であることを明示
+        ws.merge_cells(start_row=r, start_column=5, end_row=r, end_column=9)
+        # 単独列は2段マージ（縦）— 相乗積は地域格差サブヘッダ配下なので除外
+        for col in [1, 2, 3, 4]:
             ws.merge_cells(start_row=r, start_column=col, end_row=r+1, end_column=col)
         r += 1
-        # 下段：地域格差の4細目
+        # 下段：地域格差の4細目＋相乗積
         col_labels_bot = ["", "", "", "", "街路条件\n（総和）",
-                          "交通接近条件\n（総和）", "環境条件\n（総和）", "行政的条件\n（総和）", ""]
+                          "交通接近条件\n（総和）", "環境条件\n（総和）", "行政的条件\n（総和）",
+                          "相乗積\n（地域格差積）"]
         for j, h in enumerate(col_labels_bot):
             if h:  # 既にマージされていないセルのみ
                 _set(ws, r, j+1, h, font=LABEL_FONT, fill=hdr_fill, border=True,
@@ -1562,7 +1565,8 @@ def _write_kokyaku_sheet(wb: Workbook, ctx: dict):
         ws.merge_cells(start_row=r, start_column=2, end_row=r+1, end_column=2)
         _set(ws, r, 2, "形状補正", font=TMPL_FONT_BOLD, border=BORDER_FULL, align=ALIGN_CENTER)
         shape_mult = float(primary_h["標準化補正"])
-        shape_den_val = round(100 / shape_mult, 1) if shape_mult > 0 else 100
+        # 案件評点（=mult*100）を分母に表示。倍率は 下/上 で計算
+        shape_den_val = round(shape_mult * 100, 1) if shape_mult > 0 else 100
         if shape_den_val == int(shape_den_val):
             shape_den_val = int(shape_den_val)
         _set(ws, r, 3, 100, font=TMPL_FONT, border=BORDER_TOP, align=ALIGN_CENTER_H)
@@ -1576,7 +1580,8 @@ def _write_kokyaku_sheet(wb: Workbook, ctx: dict):
         ws.merge_cells(start_row=r, start_column=2, end_row=r+1, end_column=2)
         _set(ws, r, 2, "地域格差", font=TMPL_FONT_BOLD, border=BORDER_FULL, align=ALIGN_CENTER)
         chi_mult = float(primary_h["地域格差"])
-        chi_den_val = round(100 / chi_mult, 1) if chi_mult > 0 else 100
+        # 相乗積と一致する案件評点（=mult*100）を分母に
+        chi_den_val = round(chi_mult * 100, 1) if chi_mult > 0 else 100
         if chi_den_val == int(chi_den_val):
             chi_den_val = int(chi_den_val)
         _set(ws, r, 3, 100, font=TMPL_FONT, border=BORDER_TOP, align=ALIGN_CENTER_H)
@@ -1591,8 +1596,9 @@ def _write_kokyaku_sheet(wb: Workbook, ctx: dict):
         ws.merge_cells(start_row=r, start_column=3, end_row=r+1, end_column=3)
         _set(ws, r, 2, "標準画地の試算値",
              font=TMPL_FONT_BOLD, border=BORDER_FULL, align=ALIGN_CENTER)
+        # 標準化補正・地域格差は「上=100, 下=案件評点」配置 → 倍率 = 下/上
         expr = (f"C{price_row}*C{jijo_num_row}/100*C{time_num_row}/100"
-                f"*C{shape_num_row}/C{shape_den_row}*C{chi_num_row}/C{chi_den_row}")
+                f"*C{shape_den_row}/C{shape_num_row}*C{chi_den_row}/C{chi_num_row}")
         formula = f"=ROUND({expr},-(LEN(INT({expr}))-3))"
         formula_cell = ws.cell(row=r, column=3, value=formula)
         formula_cell.font = TMPL_FONT_SHISAN
