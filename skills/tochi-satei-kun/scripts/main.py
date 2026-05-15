@@ -6,6 +6,7 @@
 import argparse
 import json
 import math
+import shutil
 import sys
 from datetime import date, datetime
 from pathlib import Path
@@ -560,6 +561,33 @@ def run_pipeline(property_path: str, mlit_path: str, koji_path: str, kijun_path:
     return out_path
 
 
+def _copy_to_user_desktop(src_path: Path) -> Path | None:
+    """v1.2.7: 生成された xlsx をユーザーのデスクトップに自動コピー。
+
+    Windows MAX_PATH（259 文字）制限により、Cowork/Claude Desktop サンドボックス
+    配下の深いパスでは Excel が xlsx を開けないため、必ず短いパス（Desktop）に
+    配置する。複数の Desktop パス候補を順に試行し、最初に存在するものを採用。
+
+    Returns:
+        コピー成功時はコピー先 Path、失敗時は None。
+    """
+    home = Path.home()
+    candidates = [
+        home / "OneDrive" / "デスクトップ",   # JP Windows + OneDrive 同期
+        home / "OneDrive" / "Desktop",        # EN Windows + OneDrive 同期
+        home / "Desktop",                     # ローカル Desktop / Mac / Linux
+    ]
+    for dest_dir in candidates:
+        try:
+            if dest_dir.exists() and dest_dir.is_dir():
+                dest_path = dest_dir / src_path.name
+                shutil.copy2(src_path, dest_path)
+                return dest_path
+        except (OSError, PermissionError):
+            continue
+    return None
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("property", help="査定対象物件JSON")
@@ -573,6 +601,12 @@ def main():
     out_path = run_pipeline(args.property, args.mlit, args.koji, args.kijun,
                             out_dir=args.out, asof=asof)
     print(f"[OK] 生成完了: {out_path}")
+    # v1.2.7: ユーザーのデスクトップに自動コピー
+    desktop_copy = _copy_to_user_desktop(out_path)
+    if desktop_copy:
+        print(f"[OK] デスクトップにコピー: {desktop_copy}")
+    else:
+        print("[!] デスクトップへの自動コピーに失敗しました。手動でコピーしてください。")
 
 
 if __name__ == "__main__":
