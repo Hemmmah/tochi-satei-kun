@@ -11,7 +11,7 @@ description: 日本初のOSS（オープンソース）AVM、「AVM界のLinux�
 
 中核価値は **白箱性**：袋地・私道・形状・面積などの個別格差補正を、ヘドニック係数として **都度回帰で算定し全開示** する。HowMa等の競合は時点修正のみ係数を開示し、個別補正は黒箱だが、本スキルは12特徴量（規模・形状・方位・道路・容積率・私道・袋地・不整形・地区平均・駅勢圏など）のβ係数・p値・標準誤差・自由度調整済 R² を業者用シートに全開示する。
 
-**最新バージョン**: v1.2.8（2026-05-16）
+**最新バージョン**: v1.2.9（2026-05-16）
 
 ### MVP のスコープ：正式査定（査定書作成）一本
 
@@ -297,6 +297,7 @@ python scripts/copy_to_desktop.py <生成された xlsx のフルパス>
 
 ## バージョン履歴
 
+- **v1.2.9 (2026-05-16)**: **main.py（28KB → 9.9KB）と correction.py（22.7KB → 17.1KB）を物理的に分割**して Cowork 配布層の truncate（〜25KB で発生）を回避。`main_helpers.py`（16.6KB、koji/kijun 計算、公示番号変換、時系列補間）と `hijun_breakdown.py`（5.8KB、比準内訳計算）を新設。これで全実行系ファイルが 20KB 未満になり、Cowork が **「ファイル送信時に末尾欠落／ヌル詰め」と判定して独自 workaround を作成する挙動** が構造的に解消される見込み
 - **v1.2.8 (2026-05-16)**: (B) SKILL.md に **「スクリプトファイルの完全性検証」セクション** を追加し、Cowork の AI が「末尾途切れ」と誤判定して workaround を作成する挙動を抑止（tail コマンドで末尾を確認し、独自書き換えをしないよう明示）。(C) `copy_to_desktop.py`（2KB の独立ヘルパー）を新設。`scripts/main.py` 実行後に必ず `python scripts/copy_to_desktop.py <xlsx_path>` を呼ぶ運用を SKILL.md に明記。AI が main.py を workaround で書き換えても、デスクトップコピーは別レイヤーで確実に実行されるよう二重化
 - **v1.2.7 (2026-05-16)**: (A) `main.py` に **デスクトップ自動コピー処理** を組み込み（SKILL.md 指示に依存せず Python 側で確実に実行）。(B) `xlsx_writer.py`（1879 行・100KB）を **4 モジュールに分割**（`xlsx_common.py`、`xlsx_gyosha_sheet.py`、`xlsx_kokyaku_sheet.py`、新 `xlsx_writer.py`=3.7KB）。Cowork の Claude が大きなファイルを「末尾途切れ」と誤判定して workaround を作成する問題を緩和し、エントリポイント `xlsx_writer.py` を確実に完全読み込みできるサイズに圧縮
 - **v1.2.6 (2026-05-15)**: SKILL.md に **「生成後の必須操作」セクション** を追加。xlsx 完成後にユーザーのデスクトップへ自動コピーする運用を明文化（Windows の MAX_PATH 259 文字制限により、Cowork/Claude Desktop サンドボックスの深いパスでは Excel が xlsx を開けない問題への対応）。エンドユーザー（仲介業者）が Excel で xlsx を確実に開けるようにする UX 改善
