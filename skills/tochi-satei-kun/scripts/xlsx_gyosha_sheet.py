@@ -205,6 +205,7 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
 
     # 比準表（建付減価列を削除した8列構成）
     if hijun_rows:
+        _insert_page_break(ws, r)
         _section_header(ws, r, "■ 比準表（標準画地の比準価格）")
         r += 1
         # 列構成（8列、建付減価削除済み）：
@@ -557,6 +558,7 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
         r += 2
 
         # ■ 取引事例の概要（横並び、3事例の詳細データ）
+        _insert_page_break(ws, r)
         _section_header(ws, r, "■ 取引事例の概要", end_col=12)
         r += 1
         gaiyo_headers = ["事例番号", "取引㎡単価", "取引時点", "地区", "最寄り駅",
@@ -799,6 +801,7 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
     r += 1
 
     # ヘドニック回帰サマリ + β符号チェック（末尾：技術詳細・係数全開示の参考情報）
+    _insert_page_break(ws, r)
     _section_header(ws, r, "■ ヘドニック回帰サマリ（係数全開示・参考情報）")
     r += 1
     if hed["ok"]:

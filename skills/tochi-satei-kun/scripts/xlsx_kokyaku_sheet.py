@@ -217,6 +217,7 @@ def _write_kokyaku_sheet(wb: Workbook, ctx: dict):
 
     # ■ 比準表（取引事例比較表による試算）— 松田テンプレート準拠
     if hijun_rows:
+        _insert_page_break(ws, r)
         primary_h = next((h for h in hijun_rows if h.get("順位") == "規範性の高い事例"), hijun_rows[0])
         _section_header(ws, r, "■ 比準表（取引事例比較表による試算）", end_col=6)
         r += 1
@@ -428,6 +429,7 @@ def _write_kokyaku_sheet(wb: Workbook, ctx: dict):
     r += 4
 
     # ■ 重要事項（机上査定の前提と免責）
+    _insert_page_break(ws, r)
     _section_header(ws, r, "■ 重要事項（机上査定の前提と免責）", end_col=6)
     r += 1
 

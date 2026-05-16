@@ -42,6 +42,7 @@ def _apply_page_setup(wb: Workbook, target: dict):
         ws.oddHeader.left.text = f"業者用 — {target_label}"
         ws.oddHeader.right.text = "&D"
         ws.oddFooter.center.text = "&P / &N"
+        ws.sheet_view.view = "pageBreakPreview"
 
     # グラフ：A4 横、ページに合わせて縮小
     if "グラフ" in wb.sheetnames:
@@ -55,6 +56,7 @@ def _apply_page_setup(wb: Workbook, target: dict):
         gs.page_margins = PageMargins(left=0.5, right=0.5, top=0.6, bottom=0.6)
         gs.oddHeader.left.text = f"附属資料 — {target_label}"
         gs.oddFooter.center.text = "&P / &N"
+        gs.sheet_view.view = "pageBreakPreview"
 
     # 顧客用：A4 縦、ヘッダ「机上査定書」、フッタ「現/総」
     if "顧客用" in wb.sheetnames:
@@ -70,6 +72,7 @@ def _apply_page_setup(wb: Workbook, target: dict):
         ks.oddHeader.center.text = "&\"游ゴシック,Bold\"&14机上査定書"
         ks.oddHeader.right.text = location
         ks.oddFooter.center.text = "&P / &N"
+        ks.sheet_view.view = "pageBreakPreview"
 
 
 def write_xlsx(ctx: dict, output_path: Path) -> Path:

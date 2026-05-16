@@ -42,7 +42,7 @@ __all__ = [
     "_format_jpy", "_short_koji_id", "_koji_shape_label", "_short_koji_addr",
     "_format_pct", "_format_hijun_corr", "_hijun_top_bottom",
     "_round_3sig", "_format_price_full",
-    "_set", "_section_header", "_adjust_col_widths",
+    "_set", "_section_header", "_adjust_col_widths", "_insert_page_break",
 ]
 
 # グラフ用の短縮ラベル（表は詳細ラベル、グラフだけ短縮）
@@ -254,4 +254,11 @@ def _section_header(ws, row, text, end_col=8):
 def _adjust_col_widths(ws, widths):
     for i, w in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(i)].width = w
+
+
+def _insert_page_break(ws, before_row):
+    """before_row 行の直前で水平改ページを挿入。"""
+    from openpyxl.worksheet.pagebreak import Break
+    if before_row > 1:
+        ws.row_breaks.append(Break(id=before_row - 1))
 
