@@ -16,6 +16,8 @@ def _qualitative(beta_label, target_v, mean_v):
 
 def _write_kokyaku_sheet(wb: Workbook, ctx: dict):
     ws = wb.create_sheet("顧客用")
+    # 列幅を冒頭で設定（Cowork 配布層 truncate 対策。末尾の再設定もそのまま残す）
+    _adjust_col_widths(ws, [12, 26, 16, 18, 14, 14])
     target = ctx["target"]
     asof = ctx["asof"]
     rate_info = ctx["rate_info"]

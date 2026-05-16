@@ -5,6 +5,8 @@ from xlsx_common import *
 # ===== 業者用シート =====
 def _write_gyosha_sheet(wb: Workbook, ctx: dict):
     ws = wb.create_sheet("業者用")
+    # 列幅を冒頭で設定（Cowork 配布層 truncate 対策。末尾の再設定もそのまま残す）
+    _adjust_col_widths(ws, [14, 10, 12, 16, 12, 14, 12, 16, 10, 10, 10, 10, 12, 10])
     # グラフ専用シートを 業者用 の直後（インデックス 1）に作成
     graph_ws = wb.create_sheet("グラフ", 1)
     # グラフシートのタイトル
