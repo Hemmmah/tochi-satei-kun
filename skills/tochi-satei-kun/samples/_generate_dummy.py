@@ -1,3 +1,17 @@
+# Copyright 2026 Koichi Matsuda / SignalYield Advisory
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """ダミーサンプル生成（実MLIT CSV受領前の暫定）。
 実データ受領後はこのスクリプトを廃棄、または列名整合のリファレンスとして残す。
 東京都港区の宅地(土地)を想定して合理的な分布で30件生成。

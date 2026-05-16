@@ -1,3 +1,17 @@
+# Copyright 2026 Koichi Matsuda / SignalYield Advisory
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """個別格差補正の適用。
 比準法の核：各事例の単価に、ヘドニックβを使って「事例→査定対象」の特徴差分の補正を施す。
 

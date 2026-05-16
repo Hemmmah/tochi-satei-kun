@@ -169,7 +169,7 @@ Claude Desktop アプリの Cowork モードは、セキュリティ上の理由
 ## 関連リンク
 
 - [README.md](./README.md) — プロジェクト概要、AVM 設計思想
-- [LICENSE](./LICENSE) — MIT License
+- [LICENSE](./LICENSE) — Apache License 2.0
 - [GitHub Repository](https://github.com/signal-yield/tochi-satei-kun)
 
 ご質問・不具合報告は GitHub Issues までお願いします。

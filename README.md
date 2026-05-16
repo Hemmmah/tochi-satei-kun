@@ -16,7 +16,7 @@
 
 | # | Feature | 説明 |
 |---|---|---|
-| 01 | **オープンソース（MIT License）** | GitHubに公開。ソースコード・ヘドニック回帰係数・補正率も全部開示。商用利用・改変・教育用途すべて自由 |
+| 01 | **オープンソース（Apache 2.0 License）** | GitHubに公開。ソースコード・ヘドニック回帰係数・補正率も全部開示。商用利用・改変・教育用途すべて自由 |
 | 02 | **査定根拠を「すべて」開示** | ヘドニック回帰の係数（β・p値・標準誤差）と、比準表の内訳（採用事例の選定理由・補正率・試算値）を業者用シートに全部収録。「なぜこの価格になったのか」を計算根拠まで遡って説明・検証できる |
 | 03 | **市区町村単位で都度回帰** | 全国一律の固定値ではなく、市区町村ごとに過去5年の取引データから毎回係数を算定。地域実態に即した補正率で査定価格を算出 |
 | 04 | **検証・監査・教育研究すべてに対応** | コード・係数・補正率すべてが公開のため、第三者検証・社内監査・学術研究にそのまま使える。不動産経済学の教材としての利用も想定 |
@@ -159,8 +159,10 @@ Claude Cowork でこんな風に発話するだけ：
 
 ## License
 
-MIT License. Feel free to fork, adapt, and improve.
+Apache License 2.0. Feel free to fork, adapt, and improve.
 Pull requests and issue reports are welcome.
+
+See [LICENSE](./LICENSE) and [NOTICE](./NOTICE) for full terms.
 
 ---
 

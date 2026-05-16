@@ -1,3 +1,17 @@
+# Copyright 2026 Koichi Matsuda / SignalYield Advisory
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """比準表「補修正率と地域格差率」詳細内訳の計算（v1.2.9 で correction.py から切り出し）。
 
 鑑定実務での 4 区分（標準化補正：規模・画地、地域格差：街路・交通接近・環境・行政）

@@ -316,5 +316,5 @@ python scripts/copy_to_desktop.py <生成された xlsx のフルパス>
 
 - 作者：松田幸一（不動産鑑定士）
 - 運営：Signal Yield Advisory
-- 配布：https://github.com/signal-yield/tochi-satei-kun（MIT License）
+- 配布：https://github.com/signal-yield/tochi-satei-kun（Apache License 2.0）
 - スキル形態：完全無料 Claude スキル、ユーザー自装・自走、OEM 配布可能

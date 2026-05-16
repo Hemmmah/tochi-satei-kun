@@ -5,7 +5,7 @@
 媒介査定担当者向けの一次土地査定スキル。取引事例比較法（比準法）に基づき、ヘドニック係数を **都度回帰** で算定して個別格差補正を全開示する **白箱 AVM**。国内 AVM（HowMa, GA technologies, LIFULL）がすべてクローズドソースな中、係数・アルゴリズムを完全公開する設計。
 
 - **最新バージョン**: v1.2.0（2026-05-13）
-- **ライセンス**: MIT
+- **ライセンス**: Apache 2.0
 - **作者**: 松田幸一（不動産鑑定士）
 - **配布**: https://github.com/signal-yield/tochi-satei-kun
 
@@ -68,7 +68,7 @@ pip install -r requirements.txt
 - **MLIT取引価格情報**：[政府標準利用規約2.0](https://www.land.mlit.go.jp/webland/agreement.html) 準拠（CC-BY互換）
 - **国土数値情報（地価公示・基準地価）**：[政府標準利用規約2.0](https://nlftp.mlit.go.jp/ksj/other/agreement.html) 準拠（CC-BY互換）
 
-本スキルは **これらのデータを再配布せず、ユーザー自身がダウンロードする運用** とすることで利用規約解釈の責任をユーザー側に置く設計です。スキル本体（`samples/_generate_dummy.py` で生成される合成データ含む）はMITライセンスで配布します。
+本スキルは **これらのデータを再配布せず、ユーザー自身がダウンロードする運用** とすることで利用規約解釈の責任をユーザー側に置く設計です。スキル本体（`samples/_generate_dummy.py` で生成される合成データ含む）は Apache 2.0 ライセンスで配布します。
 
 ## 使い方
 
@@ -217,7 +217,7 @@ python scripts/main.py samples/sample_property.json \
 
 ## ライセンス
 
-MIT License
+Apache License 2.0
 
 ## 作者
 
