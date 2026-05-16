@@ -1070,6 +1070,8 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
         r += 2
 
     _adjust_col_widths(ws, [14, 10, 12, 16, 12, 14, 12, 16, 10, 10, 10, 10, 12, 10])
+    # 印刷範囲を明示指定（散布図用の隠しデータ R-W 列 / row 1671 までを印刷から除外）
+    ws.print_area = f"A1:N{r}"
 
 
 # ===== 顧客用シート =====
