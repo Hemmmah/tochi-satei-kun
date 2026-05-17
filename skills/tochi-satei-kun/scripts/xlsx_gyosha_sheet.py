@@ -21,6 +21,9 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
     ws = wb.create_sheet("業者用")
     # 列幅を冒頭で設定（Cowork 配布層 truncate 対策。末尾の再設定もそのまま残す）
     _adjust_col_widths(ws, [14, 10, 12, 16, 12, 14, 12, 16, 10, 10, 10, 10, 12, 10])
+    # 印刷範囲を冒頭で暫定設定（Cowork 配布層 truncate 対策。
+    # 末尾で `r` の正確値に上書きするが、truncate された場合に備えてマージン付き暫定値を先に置く）
+    ws.print_area = "A1:N200"
     # グラフ専用シートを 業者用 の直後（インデックス 1）に作成
     graph_ws = wb.create_sheet("グラフ", 1)
     # グラフシートのタイトル
