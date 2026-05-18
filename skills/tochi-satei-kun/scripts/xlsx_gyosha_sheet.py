@@ -53,7 +53,14 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
     hijun_detail_rows = ctx.get("hijun_detail_rows", [])
 
     r = 1
-    # タイトル
+    # 認証マーカー（A1）— ハルシネーション出力との判別用、INSTALL.md 検証チェックリスト参照
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
+    _set(ws, r, 1, "tochi-satei-kun v1.4.2 認証出力",
+         font=Font(name="游ゴシック", size=8, italic=True, color="808080"),
+         align=Alignment(horizontal="left", vertical="center"))
+    r += 1
+
+    # タイトル（A2）
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
     _set(ws, r, 1, f"土地価格査定 業者用シート — {target.get('物件略号', '')} ({target['市区町村名']} {target.get('地区名', '')})",
          font=TITLE_FONT, fill=TITLE_FILL,
