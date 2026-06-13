@@ -121,12 +121,12 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
                 reasons.append(f"有意な符号反転 {sign_inconsistent}/{sign_checked} 件（p<{SIG_P_THRESHOLD}）")
             if adj_r2 < 0.3:
                 reasons.append(f"adj R² = {adj_r2:.2f}（低水準）")
-            conf_label = (f"信頼度：中-低（n = {n}, "
+            conf_label = (f"モデル適合度：要注意（n = {n}, "
                           + ", ".join(reasons)
                           + " — 構造問題の可能性、要再確認）")
             conf_fill = P_HIGH_FILL
         elif n >= 20 and adj_r2 >= 0.45 and sign_inconsistent == 0:
-            conf_label = (f"信頼度：高（n = {n}, 自由度調整済 R² = {adj_r2:.2f}, "
+            conf_label = (f"モデル適合度：良好（n = {n}, 自由度調整済 R² = {adj_r2:.2f}, "
                           f"有意な期待符号と全整合）")
             conf_fill = P_LOW_FILL
         else:
@@ -139,10 +139,10 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
                 reasons.append(f"有意な符号反転 1/{sign_checked} 件")
             if not reasons:
                 reasons.append(f"n = {n}, adj R² = {adj_r2:.2f}")
-            conf_label = "信頼度：中（" + " / ".join(reasons) + "）"
+            conf_label = "モデル適合度：中程度（" + " / ".join(reasons) + "）"
             conf_fill = P_MID_FILL
     else:
-        conf_label = "信頼度：低（件数不足のため係数推定不能。顧客用シートは『参考情報』として出力）"
+        conf_label = "モデル適合度：参考情報（件数不足のため係数推定不能。顧客用シートは『参考情報』として出力）"
         conf_fill = P_HIGH_FILL
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
     _set(ws, r, 1, conf_label,

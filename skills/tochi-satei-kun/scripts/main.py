@@ -236,6 +236,7 @@ def main():
     out_path = run_pipeline(args.property, args.mlit, args.koji, args.kijun,
                             out_dir=args.out, asof=asof)
     print(f"[OK] 生成完了: {out_path}")
+    print("[i] 本出力は机上査定（参考値）です。不動産鑑定評価ではありません。")
     desktop_copy = _copy_to_user_desktop(out_path)
     if desktop_copy:
         print(f"[OK] デスクトップにコピー: {desktop_copy}")
