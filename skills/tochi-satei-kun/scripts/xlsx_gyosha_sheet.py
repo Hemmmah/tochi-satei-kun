@@ -55,7 +55,7 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
     r = 1
     # 認証マーカー（A1）— ハルシネーション出力との判別用、INSTALL.md 検証チェックリスト参照
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
-    _set(ws, r, 1, "tochi-satei-kun v1.4.2 認証出力",
+    _set(ws, r, 1, "tochi-satei-kun v1.4.3 認証出力",
          font=Font(name="游ゴシック", size=8, italic=True, color="808080"),
          align=Alignment(horizontal="left", vertical="center"))
     r += 1
@@ -274,12 +274,11 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
             top_row = r
             bot_row = r + 1
             # 補正項目の分子/分母（鑑定書様式）
-            # 時点修正：分子側（査定時点 / 事例時点）
-            # 標準化補正・地域格差：分母側（100 / 事例評点 = 事例側を分母に置く慣習）
+            # exp(beta * (target - case)) は事例から査定対象への倍率なので上段に表示する。
             jijo_top, jijo_bot = _hijun_top_bottom(h["事情補正"], h.get("事情補正_適用", False))
             time_top, time_bot = _hijun_top_bottom(h["時点修正"], mode="top")
-            hyo_top, hyo_bot = _hijun_top_bottom(h["標準化補正"], mode="bottom")
-            chi_top, chi_bot = _hijun_top_bottom(h["地域格差"], mode="bottom")
+            hyo_top, hyo_bot = _hijun_top_bottom(h["標準化補正"], mode="top")
+            chi_top, chi_bot = _hijun_top_bottom(h["地域格差"], mode="top")
             # 上行（分子）：列 3=事情補正, 4=時点修正, 5=標準化補正, 6=地域格差
             _set(ws, top_row, 3, jijo_top, font=font_top, fill=fill, border=True, align=center_align)
             _set(ws, top_row, 4, time_top, font=font_top, fill=fill, border=True, align=center_align)
@@ -314,8 +313,9 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
         # 注釈
         ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
         _set(ws, r, 1,
-             "※ 事例番号 = MLITデータ原本の行番号。標準画地の価格 = 3事例の試算値の中央値。"
+             "※ 事例番号 = MLITデータ原本の行番号。正本補正後単価の中央値 = 3事例の試算値の中央値。"
              "各補正は「分子/分母」形式（上段=分子、下段=分母）。「100/-」は補正非該当。"
+             "標準化補正・地域格差は exp(β×(本物件－事例)) の事例→査定対象倍率を上段に表示。"
              "標準化補正＝画地条件（規模, 形状, 方位, 袋地, 不整形）、"
              "地域格差＝地域・街路・交通要因（道路幅員, 駅徒歩, 容積率, 私道, 地区平均, 駅平均）のヘドニック係数積。"
              "**中央行（2段目）＝規範性の高い事例**（top1）、上下行は検証用の類似事例。",
@@ -446,8 +446,8 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
         center_align_gy = Alignment(horizontal="center", vertical="center")
         right_align_gy = Alignment(horizontal="right", vertical="center")
 
-        # 標準画地の試算値（= 標準画地の価格 = 3事例の試算値の中央値）— 既に比準表で計算済み
-        hijun_central_val = int(round(hijun_central))
+        # 正本補正後単価の中央値（表示丸め済み）— assess と同じ価格系列を使用
+        hijun_central_val = int(round(_round_3sig(assess.get("central_unit_price"))))
 
         # 個別格差ブロック開始行
         kobetsu_start_row = r
@@ -502,16 +502,10 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
         fusei_row_gy = r
         r += 1
 
-        # 総和（Excel関数式）— 表示中の格差行のみを積算
+        # 総和。個別格差値は説明表示のみで、価格へ再適用しない。
         _set(ws, r, 1, "総和", font=LABEL_FONT, fill=PatternFill("solid", fgColor="FFF2CC"),
              border=True, align=center_align_gy)
-        factor_refs_gy = []
-        if kado_row_gy is not None:
-            factor_refs_gy.append(f"(100+B{kado_row_gy})/100")
-        factor_refs_gy.append(f"(100+B{houi_row_gy})/100")
-        factor_refs_gy.append(f"(100+B{fusei_row_gy})/100")
-        soan_formula_gy = "=" + "*".join(factor_refs_gy) + "*100"
-        soan_cell_gy = ws.cell(row=r, column=2, value=soan_formula_gy)
+        soan_cell_gy = ws.cell(row=r, column=2, value=100)
         soan_cell_gy.font = Font(name="游ゴシック", size=10, bold=True)
         soan_cell_gy.border = BORDER
         soan_cell_gy.alignment = center_align_gy
@@ -521,14 +515,14 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
         r += 1
 
         # ====== 査定価格の算定 行（個別格差ブロックの隣、first_kobetsu_row 行から横並び）======
-        # 算定式の表示行：D=試算値, E="×", F=総和参照, G="÷ 100 ≒", H=案件査定価格
+        # 方位・不整形・明示角地は正本価格に適用済み。ここは検算用に100%を掛ける。
         # v1.2.1: 視覚アンカーは first_kobetsu_row（角地非表示時は方位の行）
 
         # 試算値 (D列、first_kobetsu_row 行)
         _set(ws, first_kobetsu_row, 4, hijun_central_val,
              font=Font(name="游ゴシック", size=12, bold=True),
              border=True, align=center_align_gy, number_format="#,##0")
-        _set(ws, first_kobetsu_row+1, 4, "標準画地の試算値(円/㎡)",
+        _set(ws, first_kobetsu_row+1, 4, "正本補正後単価の中央値(円/㎡)",
              font=Font(name="游ゴシック", size=9, italic=True, color="595959"),
              align=center_align_gy)
 
@@ -537,8 +531,8 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
              font=Font(name="游ゴシック", size=14, bold=True),
              align=center_align_gy)
 
-        # 総和/100 (F列) — 分子=B{soan_row_gy}, 分母=100 を 2行縦に表示
-        soan_ref_cell = ws.cell(row=first_kobetsu_row, column=6, value=f"=B{soan_row_gy}")
+        # 総和/100 (F列) — 常に100。説明表示の個別格差を再乗算しない。
+        soan_ref_cell = ws.cell(row=first_kobetsu_row, column=6, value=100)
         soan_ref_cell.font = Font(name="游ゴシック", size=11, bold=True)
         soan_ref_cell.border = Border(left=THIN, right=THIN, top=THIN, bottom=Side(border_style="thin", color="000000"))
         soan_ref_cell.alignment = center_align_gy
@@ -553,15 +547,13 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
              font=Font(name="游ゴシック", size=14, bold=True),
              align=center_align_gy)
 
-        # 案件査定価格 (H列) — Excel関数式
-        anken_inner = f"D{first_kobetsu_row}*B{soan_row_gy}"
-        anken_formula_gy = f"=ROUND({anken_inner},-(LEN(INT({anken_inner}))-3))/100"
-        anken_cell_gy = ws.cell(row=first_kobetsu_row, column=8, value=anken_formula_gy)
+        # 案件査定価格 (H列) — 正本補正後単価の中央値を直接参照
+        anken_cell_gy = ws.cell(row=first_kobetsu_row, column=8, value=f"=D{first_kobetsu_row}")
         anken_cell_gy.font = Font(name="游ゴシック", size=14, bold=True, color="C00000")
         anken_cell_gy.border = BORDER
         anken_cell_gy.alignment = center_align_gy
         anken_cell_gy.number_format = "#,##0"
-        _set(ws, first_kobetsu_row+1, 8, "案件査定価格(円/㎡)",
+        _set(ws, first_kobetsu_row+1, 8, "採用査定単価（top3中央値）",
              font=Font(name="游ゴシック", size=9, italic=True, color="595959"),
              align=center_align_gy)
 
@@ -575,9 +567,10 @@ def _write_gyosha_sheet(wb: Workbook, ctx: dict):
              "**角地補正は業者の入力値（デフォルト 0%）**。"
              "MLITデータに角地情報が無いためヘドニックで推定不能 → 白箱ポリシー上、自動値は与えず業者判断に委ねる。"
              "方位・不整形補正はヘドニック係数 β（dir_score, D_fuseikei）に基づく "
-             "exp(β×(本物件 − 事例)) − 1。"
-             "総和 = (1 + 角地/100) × (1 + 方位/100) × (1 + 不整形/100) × 100。"
-             "案件査定価格 = 標準画地の試算値 × 総和 / 100（上位3桁四捨五入）。",
+             "exp(β×(本物件 − 事例)) − 1 として正本価格へ1回だけ反映済み。"
+             "左欄の方位・不整形等は規範事例と本物件との差を示す説明表示です。"
+             "右欄の採用査定単価はtop3の正本補正後単価の中央値であり、"
+             "左欄の値を再乗算するものではありません。",
              font=Font(name="游ゴシック", size=9, italic=True, color="595959"),
              align=Alignment(wrap_text=True, vertical="top"))
         ws.row_dimensions[r].height = 45
