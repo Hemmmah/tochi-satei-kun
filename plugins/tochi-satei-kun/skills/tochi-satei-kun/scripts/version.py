@@ -14,4 +14,4 @@
 
 """エンジンバージョン文字列の単一定義。xlsx_writer / xlsx_gyosha_sheet / json_writer が参照する。"""
 
-ENGINE_VERSION = "1.4.3"
+ENGINE_VERSION = "1.5.0"

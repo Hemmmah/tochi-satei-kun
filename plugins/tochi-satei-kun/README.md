@@ -11,6 +11,7 @@ The packaged skill is synchronized from the canonical skill by:
 ```bash
 python scripts/sync_codex_plugin_skill.py
 python scripts/sync_codex_plugin_skill.py --check
+python scripts/sync_agent_plugins.py --check
 ```
 
 Canonical CLI example:

@@ -11,7 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-"""エンジンバージョン文字列の単一定義。xlsx_writer / xlsx_gyosha_sheet / json_writer が参照する。"""
-
-ENGINE_VERSION = "1.5.0"

@@ -12,8 +12,12 @@ PLUGIN_NAME = "tochi-satei-kun"
 PLUGIN_ROOT = ROOT / "plugins" / PLUGIN_NAME
 MANIFEST_PATH = PLUGIN_ROOT / ".codex-plugin" / "plugin.json"
 MARKETPLACE_PATH = ROOT / ".agents" / "plugins" / "marketplace.json"
+CLAUDE_MARKETPLACE_PATH = ROOT / ".claude-plugin" / "marketplace.json"
+CLAUDE_PLUGIN_ROOT = ROOT / ".claude-plugin" / "plugins" / PLUGIN_NAME
+CLAUDE_MANIFEST_PATH = CLAUDE_PLUGIN_ROOT / ".claude-plugin" / "plugin.json"
 CANONICAL_SKILL = ROOT / "skills" / PLUGIN_NAME
 PACKAGED_SKILL = PLUGIN_ROOT / "skills" / PLUGIN_NAME
+CLAUDE_PACKAGED_SKILL = CLAUDE_PLUGIN_ROOT / "skills" / PLUGIN_NAME
 
 
 def load_json(path: Path) -> dict:
@@ -35,7 +39,7 @@ def included_files(root: Path) -> set[Path]:
 def test_manifest_is_valid_and_matches_folder_name() -> None:
     manifest = load_json(MANIFEST_PATH)
     assert manifest["name"] == PLUGIN_ROOT.name
-    assert manifest["version"] == "1.4.3"
+    assert manifest["version"] == "1.5.0"
     assert manifest["description"]
     assert manifest["author"]["name"]
     assert manifest["repository"] == "https://github.com/signal-yield/tochi-satei-kun"
@@ -67,9 +71,23 @@ def test_plugin_links_to_packaged_skill() -> None:
     assert (skills_root / PLUGIN_NAME / "SKILL.md").is_file()
 
 
+def test_claude_marketplace_and_plugin_manifest_are_valid() -> None:
+    catalog = load_json(CLAUDE_MARKETPLACE_PATH)
+    assert catalog["name"] == PLUGIN_NAME
+    assert catalog["plugins"][0]["name"] == PLUGIN_NAME
+    assert catalog["plugins"][0]["source"] == f"./plugins/{PLUGIN_NAME}"
+    assert catalog["plugins"][0]["version"] == "1.5.0"
+
+    manifest = load_json(CLAUDE_MANIFEST_PATH)
+    assert manifest["name"] == PLUGIN_NAME
+    assert manifest["version"] == "1.5.0"
+    assert manifest["license"] == "Apache-2.0"
+    assert (CLAUDE_PACKAGED_SKILL / "SKILL.md").is_file()
+
+
 def test_packaged_skill_matches_canonical_skill() -> None:
     result = subprocess.run(
-        [sys.executable, "scripts/sync_codex_plugin_skill.py", "--check"],
+        [sys.executable, "scripts/sync_agent_plugins.py", "--check"],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -79,6 +97,7 @@ def test_packaged_skill_matches_canonical_skill() -> None:
     assert included_files(CANONICAL_SKILL) == included_files(PACKAGED_SKILL)
     for rel_path in included_files(CANONICAL_SKILL):
         assert (CANONICAL_SKILL / rel_path).read_bytes() == (PACKAGED_SKILL / rel_path).read_bytes()
+        assert (CANONICAL_SKILL / rel_path).read_bytes() == (CLAUDE_PACKAGED_SKILL / rel_path).read_bytes()
 
 
 def test_sync_check_fails_for_deliberate_mismatch(tmp_path: Path) -> None:
@@ -89,12 +108,15 @@ def test_sync_check_fails_for_deliberate_mismatch(tmp_path: Path) -> None:
     source.mkdir(parents=True)
     destination.mkdir(parents=True)
     scripts.mkdir()
+    claude_destination = temporary_root / ".claude-plugin" / "plugins" / PLUGIN_NAME / "skills" / PLUGIN_NAME
     (source / "SKILL.md").write_text("canonical\n", encoding="utf-8")
     (destination / "SKILL.md").write_text("stale\n", encoding="utf-8")
-    shutil.copy2(ROOT / "scripts" / "sync_codex_plugin_skill.py", scripts)
+    claude_destination.mkdir(parents=True)
+    (claude_destination / "SKILL.md").write_text("canonical\n", encoding="utf-8")
+    shutil.copy2(ROOT / "scripts" / "sync_agent_plugins.py", scripts)
 
     result = subprocess.run(
-        [sys.executable, "scripts/sync_codex_plugin_skill.py", "--check"],
+        [sys.executable, "scripts/sync_agent_plugins.py", "--check"],
         cwd=temporary_root,
         capture_output=True,
         text=True,
@@ -102,15 +124,17 @@ def test_sync_check_fails_for_deliberate_mismatch(tmp_path: Path) -> None:
     )
 
     assert result.returncode != 0
-    assert "content differs: SKILL.md" in result.stderr
+    assert "codex: content differs: SKILL.md" in result.stderr
 
 
 def test_version_matches_engine_version() -> None:
     manifest = load_json(MANIFEST_PATH)
+    claude_manifest = load_json(CLAUDE_MANIFEST_PATH)
     version_text = (ROOT / "skills" / PLUGIN_NAME / "scripts" / "version.py").read_text(encoding="utf-8")
     version_line = next(line for line in version_text.splitlines() if line.startswith("ENGINE_VERSION"))
     engine_version = version_line.split("=", 1)[1].strip().strip("'\"")
     assert manifest["version"] == engine_version
+    assert claude_manifest["version"] == engine_version
 
 
 def test_plugin_description_guardrails() -> None:
@@ -173,10 +197,20 @@ def test_valuation_logic_files_are_not_changed() -> None:
     assert packaged_scripts.is_dir()
 
     result = subprocess.run(
-        [sys.executable, "scripts/sync_codex_plugin_skill.py", "--check"],
+        [sys.executable, "scripts/sync_agent_plugins.py", "--check"],
         cwd=ROOT,
         capture_output=True,
         text=True,
         check=False,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_activation_cases_are_shared_assets() -> None:
+    cases = load_json(CANONICAL_SKILL / "tests" / "activation_cases.json")
+    assert len(cases["positive"]) >= 5
+    assert len(cases["negative"]) >= 3
+    for prompt in cases["positive"]:
+        assert any(token in prompt for token in ["土地", "MLIT", "地価公示", "査定"])
+    for prompt in cases["negative"]:
+        assert "土地" not in prompt or "鑑定評価書" in prompt

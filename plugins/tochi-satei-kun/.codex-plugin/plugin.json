@@ -1,6 +1,6 @@
 {
   "name": "tochi-satei-kun",
-  "version": "1.4.3",
+  "version": "1.5.0",
   "description": "Apache-2.0 local-first OSS tool for preliminary Japanese land brokerage valuation support that generates Excel and JSON outputs from user-provided MLIT transaction data and L01 land-price-publication data.",
   "author": {
     "name": "Signal Yield Advisory / Koichi Matsuda",

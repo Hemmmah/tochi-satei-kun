@@ -6,15 +6,15 @@
     "url": "https://github.com/signal-yield"
   },
   "metadata": {
-    "description": "Japan's first open-source AVM — 'the Linux of AVMs' for land appraisal. White-box hedonic regression, full coefficient disclosure, Apache-2.0. By Signal Yield Advisory, a Japanese licensed real estate appraiser.",
-    "version": "1.4.3"
+    "description": "Cross-platform Agent Skill for preliminary Japanese land brokerage valuation support. Local-first, Apache-2.0, white-box calculation support for user-provided MLIT transaction and L01 land-price-publication data.",
+    "version": "1.5.0"
   },
   "plugins": [
     {
       "name": "tochi-satei-kun",
-      "source": "./",
-      "description": "Japan's first open-source AVM for land appraisal — 'the Linux of AVMs'. Re-estimates hedonic regression coefficients on every run from MLIT transaction data, fully discloses coefficients/p-values/standard errors, and generates broker-side worksheets plus client-facing assessment reports (xlsx).",
-      "version": "1.4.3",
+      "source": "./plugins/tochi-satei-kun",
+      "description": "Adds the tochi-satei-kun Agent Skill for preliminary Japanese land brokerage valuation support. It runs the canonical local Python engine and generates Excel and JSON outputs; outputs are not real-estate appraisal opinions.",
+      "version": "1.5.0",
       "author": {
         "name": "Koichi Matsuda (Licensed Real Estate Appraiser, Japan, 2002-)",
         "email": "signalyield@gmail.com"
@@ -22,13 +22,12 @@
       "keywords": [
         "real-estate",
         "japan",
-        "land-valuation",
-        "AVM",
+        "land",
+        "brokerage",
+        "valuation-support",
         "hedonic-regression",
         "white-box",
         "comparable-sales",
-        "appraisal",
-        "takkengyoho",
         "MLIT"
       ],
       "license": "Apache-2.0",

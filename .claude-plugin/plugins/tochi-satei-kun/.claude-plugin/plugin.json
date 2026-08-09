@@ -1,0 +1,12 @@
+{
+  "name": "tochi-satei-kun",
+  "description": "Adds the tochi-satei-kun skill for local-first preliminary Japanese land brokerage valuation support.",
+  "version": "1.5.0",
+  "author": {
+    "name": "Signal Yield Advisory / Koichi Matsuda",
+    "url": "https://github.com/signal-yield/tochi-satei-kun"
+  },
+  "homepage": "https://github.com/signal-yield/tochi-satei-kun",
+  "repository": "https://github.com/signal-yield/tochi-satei-kun",
+  "license": "Apache-2.0"
+}

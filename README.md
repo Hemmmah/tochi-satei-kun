@@ -1,9 +1,13 @@
 # 土地価格査定クン (Tochi-Satei-Kun)
-## 「AVM界のLinux」を目指す OSS 土地査定エンジン
+## Cross-platform Agent Skill for Codex and Claude
 
-**土地価格査定クン** は、宅建業者・媒介査定担当者・不動産鑑定士向けのオープンソース AVM（Automated Valuation Model）です。係数全開示型の OSS AVM としては管見の限り国内でも初期の一つです。MLIT（国土交通省）取引価格情報CSVと地価公示GeoJSONを入力に、**ヘドニック回帰係数を都度算定して個別格差補正を全開示**（白箱方式）し、業者用シート（係数開示）と顧客用シート（流推方式準拠）の2シート構成xlsxを出力します。
+tochi-satei-kun is a cross-platform Agent Skill for Codex and Claude.
+
+**土地価格査定クン** は、Codex と Claude Code の双方で利用できる、宅建業者・媒介査定担当者・不動産鑑定士向けのオープンソース AVM（Automated Valuation Model）です。係数全開示型の OSS AVM としては管見の限り国内でも初期の一つです。MLIT（国土交通省）取引価格情報CSVと地価公示GeoJSONを入力に、**ヘドニック回帰係数を都度算定して個別格差補正を全開示**（白箱方式）し、業者用シート（係数開示）と顧客用シート（流推方式準拠）の2シート構成xlsxを出力します。
 
 査定担当者が売主から物件を預かる際の **一次査定** を、説明可能・検証可能な形で自動化します。
+
+共通Skillの正本は `skills/tochi-satei-kun/` です。Codex package と Claude Code package は、この正本から同期生成される薄い包装です。査定ロジックをプラットフォーム別にforkしません。
 
 👉 **エンドユーザーの方は [INSTALL.md](./INSTALL.md) をご覧ください。** Cowork 上でのインストール、データ取得、Watcher セットアップまで日本語で解説しています。
 
@@ -21,7 +25,7 @@
 | 03 | **市区町村単位で都度回帰** | 全国一律の固定値ではなく、市区町村ごとに過去5年の取引データから毎回係数を算定。地域実態に即した補正率で査定価格を算出 |
 | 04 | **検証・監査・教育研究すべてに対応** | コード・係数・補正率すべてが公開のため、第三者検証・社内監査・学術研究にそのまま使える。不動産経済学の教材としての利用も想定 |
 | 05 | **業者用＋顧客用 2シート構成xlsx** | 業者用シート（係数全開示）と顧客用シート（流推方式準拠で売主提示用に整形）の2シートを一括生成。査定→提案までを1ツールで完結 |
-| 06 | **完全無料・追加費用なし** | Claudeの契約料以外に追加費用は一切なし。業者・不動産鑑定士・銀行不動産担当・教育機関すべての方が自由に利用可能 |
+| 06 | **完全無料・追加費用なし** | 本リポジトリ自体はApache-2.0で無償利用可能。CodexまたはClaude Codeなど実行環境側の契約・利用条件は各サービスに従う |
 
 「鑑定士の経験則を、ヘドニック係数として統計的に裏付ける」が本スキルの設計思想です。
 
@@ -72,6 +76,18 @@
 
 ## How to Install
 
+### Codexで使う
+
+Codex用packageは `plugins/tochi-satei-kun/` にあります。ローカルmarketplaceとして使う場合は `.agents/plugins/marketplace.json` を参照してください。
+
+```bash
+python scripts/sync_agent_plugins.py --check
+```
+
+Codex desktop / CLI のPlugins画面でlocal marketplaceから `tochi-satei-kun` をinstallし、新しいtaskで有効化してください。
+
+### Claude Codeで使う
+
 SSH未設定でも導入できることを実測確認済みです（SSHキー・known_hostsの事前設定は不要）。
 
 **対話セッション内**（Claude Code / Cowork）：
@@ -92,6 +108,15 @@ claude plugin install tochi-satei-kun@tochi-satei-kun
 
 ```bash
 pip install pandas statsmodels scikit-learn openpyxl
+```
+
+### Package同期
+
+canonical Skillを変更したら、必ず両packageを同期します。
+
+```bash
+python scripts/sync_agent_plugins.py
+python scripts/sync_agent_plugins.py --check
 ```
 
 ---

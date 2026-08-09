@@ -1,14 +1,24 @@
 {
   "name": "tochi-satei-kun",
-  "description": "Japan's first open-source AVM (Automated Valuation Model) for land appraisal — aiming to be 'the Linux of AVMs'. Re-estimates hedonic regression coefficients on every run from MLIT transaction data, fully discloses coefficients/p-values/standard errors, and generates broker-side worksheets plus client-facing assessment reports (xlsx).",
-  "version": "1.4.3",
+  "description": "Cross-platform Agent Skill for preliminary Japanese land brokerage valuation support. Runs the canonical local Python engine and generates Excel and JSON outputs; outputs are not real-estate appraisal opinions.",
+  "version": "1.5.0",
   "author": {
     "name": "Koichi Matsuda",
     "email": "signalyield@gmail.com",
     "url": "https://github.com/signal-yield"
   },
-  "license": "Apache-2.0",
   "homepage": "https://github.com/signal-yield/tochi-satei-kun",
   "repository": "https://github.com/signal-yield/tochi-satei-kun",
-  "keywords": ["real-estate", "japan", "land-valuation", "AVM", "hedonic-regression", "white-box", "comparable-sales", "appraisal", "takkengyoho", "MLIT"]
+  "license": "Apache-2.0",
+  "keywords": [
+    "real-estate",
+    "japan",
+    "land",
+    "brokerage",
+    "valuation-support",
+    "hedonic-regression",
+    "white-box",
+    "comparable-sales",
+    "MLIT"
+  ]
 }
