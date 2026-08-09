@@ -30,6 +30,8 @@
       "Write"
     ],
     "websiteURL": "https://github.com/signal-yield/tochi-satei-kun",
+    "composerIcon": "./assets/composer-icon.png",
+    "logo": "./assets/logo.png",
     "defaultPrompt": [
       "土地査定クンで媒介査定の一次検討用ExcelとJSONを作成して",
       "MLIT取引価格情報CSVと地価公示L01データから土地査定書を作成して",

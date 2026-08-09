@@ -71,6 +71,16 @@ def test_plugin_links_to_packaged_skill() -> None:
     assert (skills_root / PLUGIN_NAME / "SKILL.md").is_file()
 
 
+def test_codex_plugin_interface_images_exist() -> None:
+    manifest = load_json(MANIFEST_PATH)
+    for key in ("composerIcon", "logo"):
+        rel_path = manifest["interface"][key]
+        assert rel_path.startswith("./")
+        image_path = (PLUGIN_ROOT / rel_path).resolve()
+        assert image_path.is_file()
+        assert image_path.suffix == ".png"
+
+
 def test_claude_marketplace_and_plugin_manifest_are_valid() -> None:
     catalog = load_json(CLAUDE_MARKETPLACE_PATH)
     assert catalog["name"] == PLUGIN_NAME
