@@ -20,7 +20,7 @@
   ],
   "skills": "./skills/",
   "interface": {
-    "displayName": "tochi-satei-kun - Land Brokerage Valuation Support",
+    "displayName": "tochi-satei-kun",
     "shortDescription": "Generate inspectable Excel and JSON outputs for preliminary Japanese land brokerage valuation support.",
     "longDescription": "tochi-satei-kun is an Apache-2.0 local-first OSS tool for preliminary Japanese land brokerage valuation support. It runs locally, uses white-box hedonic regression and comparable transaction analysis, and generates Excel and JSON outputs from user-provided property, MLIT transaction, and L01 land-price-publication files. The tool itself does not send input files to external services. Outputs are not real-estate appraisal opinions; users must separately verify site conditions, legal restrictions, rights, and other material facts, and the final decision remains with the user.",
     "developerName": "Signal Yield Advisory / Koichi Matsuda",
